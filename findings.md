@@ -108,3 +108,38 @@ workaround resmi. Leadengineer tidak mencobanya.
 **Pelajaran:** sebelum menyimpulkan "diblokir", coba semua workaround yang
 tercatat di SOP. Jangan turunkan spesifikasi PRD karena satu percobaan gagal.
 
+---
+
+## 2026-10-10 — Dua bug yang lolos review + test otomatis (ketua_agen)
+
+Kedua bug ini **lulus** code review independen `@programmer`, smoke test, dan
+script acceptance 15/15. Yang menemukan: **user**, hanya dengan membaca output
+di layar.
+
+**Bug 1 — unit salah.** KPI Trade Balance menampilkan `+8295823081.86 pp`:
+selisih USD mentah dilabeli "pp" karena satu helper format dipakai bersama
+untuk semua indikator.
+
+**Bug 2 — kalimat bertentangan dengan datanya.** Insight menulis
+"Inflasi 6.5% **di luar target BI**, memberikan ruang bagi kebijakan moneter
+yang stabil." Kondisi ("di luar target") ikut berubah bersama data, tapi
+**kesimpulannya hardcoded**.
+
+**Akar masalahnya sama:** verifikasi memeriksa **apakah sesuatu merespons /
+tidak crash / format benar**, bukan **apakah isinya masuk akal**.
+
+**Aturan:**
+- Baca output yang benar-benar dirender — angka dan kalimatnya. Jangan cuma cek
+  status code atau keberadaan elemen.
+- Untuk teks yang dihasilkan dari data, **assert bahwa kesimpulan cocok dengan
+  inputnya** — satu assertion per cabang.
+- Uji **setiap cabang** dengan skenario yang benar-benar memicunya. Test yang
+  hanya memakai nilai live saat itu hanya menutup satu cabang dan
+  menyembunyikan sisanya.
+- Code review otomatis tidak tahu satuan domainmu. Review hijau bukan bukti
+  benar.
+
+Contoh test yang benar: `test_insight_dynamic.py` — 5 skenario data, 11 assertion,
+termasuk cek konsistensi logika (`"lebih ketat" in text_high and "akomodatif"
+not in text_high`).
+
