@@ -51,3 +51,8 @@ def stop_scheduler():
         _scheduler.shutdown(wait=False)
         print("[Scheduler] APScheduler stopped")
     _scheduler = None
+
+
+def scheduler_running():
+    """True when the background scheduler is alive (used by /health)."""
+    return bool(_scheduler is not None and _scheduler.running)

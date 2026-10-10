@@ -102,6 +102,17 @@ def set_last_updated():
     conn.close()
 
 
+def count_rows():
+    """Total indicator rows stored (used by /health to verify a deploy)."""
+    try:
+        conn = get_db()
+        row = conn.execute("SELECT COUNT(*) AS n FROM indicators").fetchone()
+        conn.close()
+        return row["n"] if row else 0
+    except Exception:
+        return 0
+
+
 def get_all_data():
     """Get all indicator data for dashboard."""
     codes = {

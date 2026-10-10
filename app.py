@@ -7,9 +7,9 @@ from datetime import datetime
 from flask import Flask, render_template, Response
 
 sys.path.insert(0, os.path.dirname(__file__))
-from models import init_db, get_all_data, get_last_updated
+from models import init_db, get_all_data, get_last_updated, count_rows
 from data_fetcher import fetch_all
-from scheduler import start_scheduler, stop_scheduler
+from scheduler import start_scheduler, stop_scheduler, scheduler_running
 
 app = Flask(__name__)
 
@@ -182,7 +182,13 @@ def download_csv():
 
 @app.route("/health")
 def health():
-    return {"status": "ok", "timestamp": datetime.utcnow().isoformat()}
+    """Health check. Reports scheduler state so a deploy can be verified."""
+    return {
+        "status": "ok",
+        "timestamp": datetime.utcnow().isoformat(),
+        "scheduler_running": scheduler_running(),
+        "rows_stored": count_rows(),
+    }
 
 
 def bootstrap():

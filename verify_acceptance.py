@@ -8,7 +8,7 @@ import io
 import os
 import requests
 
-BASE = "http://127.0.0.1:5000"
+BASE = os.environ.get("BASE_URL", "http://127.0.0.1:5000")
 results = []
 
 
@@ -51,25 +51,12 @@ n_sent = insight_text.count(".")
 check("AC4 insight box relevan", bool(insight_text) and n_sent >= 2,
       f"{n_sent} kalimat; cuplikan={insight_text[:90]}...")
 
-# AC5: auto-update — scheduler thread aktif, cek log proses nyata
-import subprocess
-pid_out = subprocess.run(["pgrep", "-f", "python3 app.py"], capture_output=True, text=True).stdout.split()
-pid = pid_out[0] if pid_out else None
-n_threads = 0
-if pid:
-    try:
-        n_threads = len(os.listdir(f"/proc/{pid}/task"))
-    except Exception:
-        n_threads = 0
-log = ""
-try:
-    with open("/tmp/ied_sched.log") as f:
-        log = f.read()
-except Exception:
-    pass
-has_sched = "Scheduler" in log or n_threads >= 2
+# AC5: auto-update — scheduler aktif, dibaca dari endpoint /health app sendiri
+import json as _json
+h = requests.get(BASE + "/health", timeout=30).json()
+has_sched = bool(h.get("scheduler_running"))
 check("AC5 auto-update scheduler aktif", has_sched,
-      f"pid={pid}, threads={n_threads} (main + scheduler), log_has_Scheduler={'Scheduler' in log}")
+      f"scheduler_running={h.get('scheduler_running')}, rows_stored={h.get('rows_stored')}")
 
 # AC6: sumber data + last updated
 has_src = "World Bank" in html
