@@ -142,3 +142,43 @@ Flask + SQLite + APScheduler.
 **Next:** Setup Render Web Service + CNAME `inthiseconomy` di Cloudflare.
 
 **Error:** tidak ada.
+
+---
+
+## Sesi 2026-10-10 — Deploy Live ke Render (ketua_agen + user)
+
+**Aksi:**
+- User setup Render Web Service dari form dashboard.
+- Ditemukan 2 masalah di form sebelum deploy:
+  1. **Start Command masih placeholder** `gunicorn your_application.wsgi` (contoh
+     bawaan Render). Dikoreksi user jadi `gunicorn app:app`.
+  2. **Health Check Path `/healthz`** tidak ada di app → Render akan dapat 404 dan
+     menandai deploy gagal. Route `/healthz` ditambahkan ke kode (commit `d31c776`),
+     `/health` tetap jalan. `healthCheckPath` juga ditambahkan ke `render.yaml`.
+- Service ternyata di-deploy dengan nama `inthiseconomy`, bukan
+  `indonesia-economic-dashboard` → URL live `inthiseconomy.onrender.com`.
+
+**Verifikasi terhadap URL PRODUKSI (bukan lokal):**
+- `verify_acceptance.py` dengan `BASE_URL=https://inthiseconomy.onrender.com`:
+  **15/15 PASS**
+- `/healthz` → `{"status":"ok","scheduler_running":true,"rows_stored":176}`
+- Route: `/` 200 (30280 B), `/healthz` 200, `/health` 200, `/download/csv` 200 (1192 B)
+- Render browser nyata: 3 chart Plotly, masing-masing 5 titik data, 9 SVG, 0 JS error
+- KPI live: 5.11%, 1.91%, 29.6 miliar USD
+- Cold start terukur: 0.47 s
+- Bukti: `dashboard_live_screenshot.png`
+
+**Catatan penting soal free tier:**
+Free tier Render tidak punya persistent disk — `economic_data.db` hilang tiap
+restart/spin-down. Ini **tidak fatal** karena `bootstrap()` otomatis fetch ulang
+176 rows saat boot. Scheduler APScheduler juga mati saat spin-down dan restart
+dari nol, jadi job 6 jam tidak selalu tercapai. Untuk data persisten + scheduler
+andal perlu plan berbayar ($7/bulan, persistent disk).
+
+**Yang belum:**
+- Custom domain `inthiseconomy.choirulhaq.com` — belum ada DNS record.
+  Perlu: Cloudflare DNS → CNAME `inthiseconomy` → `inthiseconomy.onrender.com`
+  (proxied), lalu Render → Settings → Custom Domains.
+- Review formal `@programmer` — belum pernah terjadi.
+
+**Error:** tidak ada.

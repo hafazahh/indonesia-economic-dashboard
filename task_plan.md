@@ -25,9 +25,27 @@ insight box, auto-update dari World Bank API, dan download CSV.
 | 4 | Review kode | programmer | **belum ada bukti** — tidak ada catatan review di progress.md |
 | 5 | Verifikasi end-to-end | leadengineer | complete (self-report) |
 | 6 | Verifikasi independen + perbaikan bug | ketua_agen | complete — 15/15 PASS |
+| 7 | Push GitHub | ketua_agen | complete |
+| 8 | Kesiapan deploy (bug gunicorn) | ketua_agen | complete |
+| 9 | Deploy ke Render | user | **complete — LIVE** |
+| 10 | Custom domain `inthiseconomy.choirulhaq.com` | user | pending — DNS record belum ada |
 
 **Kanban:** board `indonesia-economic-dashboard`, task `t_e2a1df69`, assignee leadengineer.
 **Notifikasi:** Telegram DM user (subscribed).
+
+---
+
+## Status Live (2026-10-10)
+
+| Item | Nilai |
+|------|-------|
+| URL live | https://inthiseconomy.onrender.com |
+| Repo | https://github.com/hafazahh/indonesia-economic-dashboard |
+| Verifikasi live | **15/15 PASS** (dijalankan terhadap URL produksi) |
+| `/healthz` | `{"status":"ok","scheduler_running":true,"rows_stored":176}` |
+| Render chart nyata | 3 chart Plotly, 5 titik data/trace, 9 SVG, 0 JS error |
+| Cold start | 0.47 s |
+| Custom domain | ⏳ belum — DNS record `inthiseconomy` belum dibuat di Cloudflare |
 
 ---
 
