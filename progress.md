@@ -111,3 +111,34 @@ Review formal masih perlu dilakukan.
 | 2026-10-10 | Sumber data footer | PASS |
 | 2026-10-10 | `verify_acceptance.py` (independen) | **15/15 PASS** |
 | 2026-10-10 | Render browser nyata (Plotly SVG) | PASS — 3 chart, 5 titik/trace |
+| 2026-10-10 | **Jalur gunicorn (deploy Render)** | **15/15 PASS** dari DB kosong — `bootstrap()` auto-fetch 176 rows |
+| 2026-10-10 | `/health` deploy check | `{"status":"ok","scheduler_running":true,"rows_stored":176}` |
+
+---
+
+## Sesi 2026-10-10 — Push GitHub + Kesiapan Deploy (ketua_agen)
+
+**Aksi:**
+- Perbaiki bug deploy: `init_db()`/`fetch_all()`/`start_scheduler()` dipindah dari
+  blok `__main__` ke `bootstrap()` yang dieksekusi saat import. Tanpa ini, gunicorn
+  `app:app` di Render tidak akan pernah menjalankan scheduler atau fetch data.
+- `PORT` dari env; tambah `gunicorn` ke requirements, `Procfile`, `render.yaml`.
+- SQLite: WAL + busy_timeout 30s + timeout 30s (hindari "database is locked").
+- `.gitignore` mengecualikan `economic_data.db`.
+- `/health` melaporkan `scheduler_running` + `rows_stored` untuk verifikasi deploy.
+- `verify_acceptance.py`: `BASE_URL` env override, AC5 dibaca dari `/health`.
+- Push ke GitHub: https://github.com/hafazahh/indonesia-economic-dashboard
+
+**Verifikasi jalur deploy (gunicorn, DB dihapus dulu):**
+- 15/15 PASS
+- 176 rows auto-fetch saat boot
+- `scheduler_running: true`
+- DB tidak ter-commit (diverifikasi 404 di GitHub API)
+
+**Keputusan:** deploy ke **Render** (service terpisah, bukan digabung crud).
+Cloudflare hanya DNS + proxy — Pages/Workers tidak punya runtime Python untuk
+Flask + SQLite + APScheduler.
+
+**Next:** Setup Render Web Service + CNAME `inthiseconomy` di Cloudflare.
+
+**Error:** tidak ada.
