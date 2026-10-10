@@ -13,13 +13,31 @@ from scheduler import start_scheduler, stop_scheduler, scheduler_running
 
 app = Flask(__name__)
 
+# Indicator codes. Defined once so a typo cannot silently desynchronise the
+# formatting logic from the fetch/schema logic.
+GDP_GROWTH_CODE = "NY.GDP.MKTP.KD.ZG"
+INFLATION_CODE = "FP.CPI.TOTL.ZG"
+TRADE_BALANCE_CODE = "BN.GSR.GNFS.CD"
+
 
 def format_value(code, value):
-    """Format value for display."""
-    if code == "BN.GSR.GNFS.CD":
-        # Trade balance stored in USD; display in billions USD
+    """Format an indicator value with its correct unit."""
+    if code == TRADE_BALANCE_CODE:
+        # Trade balance is stored in USD; display in billions USD
         return f"{value / 1e9:.1f} miliar USD"
     return f"{value:.2f}%"
+
+
+def format_change(code, change):
+    """Format the year-over-year change with the indicator's own unit.
+
+    Percentage indicators change in percentage points ("pp"); the trade balance
+    changes in USD, so it must be shown as an absolute amount. Labelling a USD
+    delta as "pp" produces nonsense like "+8295823081.86 pp".
+    """
+    if code == TRADE_BALANCE_CODE:
+        return f"{abs(change) / 1e9:.1f} miliar USD"
+    return f"{abs(change):.2f} pp"
 
 
 def compute_kpis(data):
@@ -32,7 +50,6 @@ def compute_kpis(data):
         latest = rows[0]
         prev = rows[1] if len(rows) > 1 else None
         change = latest["value"] - prev["value"] if prev else 0
-        change_pct = abs(change)
         arrow = "+" if change > 0 else ("-" if change < 0 else "")
         change_badge = "bg-success" if change >= 0 else "bg-danger"
         if code == "FP.CPI.TOTL.ZG":
@@ -47,13 +64,15 @@ def compute_kpis(data):
         else:
             status = None
             status_badge = None
+        # With fewer than two data points there is no meaningful YoY change.
+        has_prev = prev is not None
         kpis.append({
             "code": code,
             "name": info["name"],
             "formatted_value": format_value(code, latest["value"]),
-            "formatted_change": f"{change_pct:.2f} pp",
-            "change_arrow": arrow,
-            "change_badge_class": change_badge,
+            "formatted_change": format_change(code, change) if has_prev else "Data tidak cukup",
+            "change_arrow": arrow if has_prev else "",
+            "change_badge_class": change_badge if has_prev else "bg-secondary",
             "status": status,
             "status_badge_class": status_badge,
         })
@@ -140,11 +159,21 @@ def dashboard():
     last_updated = get_last_updated() or "Belum pernah update"
 
     # Chart data: 5 years ascending
-    pdb_rows = sorted(data["NY.GDP.MKTP.KD.ZG"]["data"], key=lambda r: r["year"])
-    inflasi_rows = sorted(data["FP.CPI.TOTL.ZG"]["data"], key=lambda r: r["year"])
+    pdb_rows = sorted(data[GDP_GROWTH_CODE]["data"], key=lambda r: r["year"])
+    inflasi_rows = sorted(data[INFLATION_CODE]["data"], key=lambda r: r["year"])
     years = [r["year"] for r in pdb_rows]
     pdb_values = [r["value"] for r in pdb_rows]
     inflasi_values = [r["value"] for r in inflasi_rows]
+
+    # If the World Bank API was unreachable at boot the DB is empty. Say so
+    # explicitly instead of rendering blank cards with no explanation.
+    data_unavailable = not kpis
+    if data_unavailable:
+        insight = (
+            "Data belum tersedia. Sumber World Bank API tidak dapat dihubungi saat "
+            "aplikasi dijalankan. Data akan dimuat otomatis pada pembaruan berikutnya "
+            "(setiap 6 jam)."
+        )
 
     # Plotly charts (PRD §9). Built server-side, embedded as inline HTML.
     main_chart = build_main_chart(years, pdb_values, inflasi_values)
@@ -160,7 +189,21 @@ def dashboard():
         main_chart=main_chart,
         pdb_chart=pdb_chart,
         inflasi_chart=inflasi_chart,
+        data_unavailable=data_unavailable,
     )
+
+
+def _csv_safe(value):
+    """Neutralise spreadsheet formula injection.
+
+    Excel/Sheets treat a cell starting with = + - @ as a formula. Prefixing with
+    an apostrophe keeps the value as text. Values here come from the World Bank
+    API (numbers), so this is defence in depth rather than a live hole.
+    """
+    text = "" if value is None else str(value)
+    if text[:1] in ("=", "+", "-", "@"):
+        return "'" + text
+    return text
 
 
 @app.route("/download/csv")
@@ -171,7 +214,13 @@ def download_csv():
     writer.writerow(["Indicator", "Code", "Year", "Value", "Fetched At"])
     for code, info in data.items():
         for row in info["data"]:
-            writer.writerow([info["name"], code, row["year"], row["value"], row["fetched_at"]])
+            writer.writerow([
+                _csv_safe(info["name"]),
+                _csv_safe(code),
+                row["year"],
+                row["value"],
+                _csv_safe(row["fetched_at"]),
+            ])
     output.seek(0)
     return Response(
         output.getvalue(),

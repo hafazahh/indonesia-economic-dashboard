@@ -26,6 +26,15 @@
         <p class="text-muted">Data Makro untuk Akademisi &amp; Pebisnis</p>
     </header>
 
+    <!-- Peringatan data tidak tersedia -->
+    {% if data_unavailable %}
+    <div class="alert alert-warning" role="alert">
+        <strong>Data belum tersedia.</strong>
+        Sumber World Bank API tidak dapat dihubungi saat aplikasi dijalankan.
+        Data akan dimuat otomatis pada pembaruan berikutnya (setiap 6 jam).
+    </div>
+    {% endif %}
+
     <!-- KPI Cards -->
     <div class="row g-3 mb-4">
         {% for kpi in kpis %}
