@@ -321,3 +321,62 @@ mengecek "apakah merespons", bukan "apakah isinya masuk akal". Aturan baru
 tercatat di SOP §8, skill `requesting-code-review`, dan `findings.md`.
 
 **Error:** tidak ada.
+
+---
+
+## Sesi 2026-10-10 — Enhancement Insight Granular (ketua_agen)
+
+**Permintaan user:** perkuat bagian insight dengan 4 peningkatan.
+
+**Implementasi (`generate_insight()` di `app.py`):**
+
+1. **Inflasi — 3 kondisi** (dulu hanya biner dalam/luar target):
+   - `< 2%` → "di bawah target BI (2-4%), memberi ruang kebijakan moneter yang akomodatif"
+   - `2–4%` → "berada dalam target BI (2-4%)"
+   - `> 4%` → "di atas target BI (2-4%), menekan ruang kebijakan moneter"
+   - Perbaikan penting: 1.91% tidak lagi disebut "dalam target" — secara teknis
+     di bawah batas bawah 2%.
+
+2. **PDB Growth — konteks tren YoY** (butuh baris tahun sebelumnya):
+   - naik vs tahun lalu → "solid dan membaik"
+   - turun tapi ≥ 5% → "masih solid meskipun melambat"
+   - 4.5–5% → "melambat"
+   - < 4.5% → "moderat"
+
+3. **Trade Balance — magnitude + arah YoY:**
+   - Magnitude: surplus/defisit × besar (≥20 M) / moderat (10–20 M) / kecil (<10 M)
+   - Arah: "surplus melebar", "surplus menyempit", "defisit melebar",
+     "defisit menyempit", "berubah dari defisit", "berubah dari surplus"
+
+4. **Kombinasi kondisi makro:**
+   - Growth ≥5% + inflasi <2% → "kondisi makro yang mendukung ekspansi"
+   - Growth <4.5% + inflasi >4% → "memerlukan kehati-hatian dalam pengambilan keputusan"
+
+**KPI badge inflasi** juga dipecah 3 status: `Di bawah target BI` (bg-info),
+`Dalam target BI` (bg-success), `Di atas target BI` (bg-danger).
+
+**Konsekuensi teknis:** `generate_insight()` sekarang butuh `info["data"]`
+(bukan hanya `info["latest"]`) untuk akses baris tahun sebelumnya. Data dari
+`get_indicator_data()` urut **DESC**, jadi `rows[1]` = tahun sebelumnya.
+
+**Verifikasi:**
+- `test_insight_dynamic.py` diperluas 5 → **21 skenario, 21/21 PASS** (21 teks unik)
+- `test_kpi_units.py` — **17/17 PASS** (tidak ada regresi)
+- `verify_acceptance.py` — **15/15 PASS**
+- Live: https://inthiseconomy.choirulhaq.com — HTML production berisi
+  "solid dan membaik", "di bawah target BI ... akomodatif", "surplus besar ...
+  surplus melebar", "mendukung ekspansi"
+
+**Error (bug di test, bukan di kode):**
+- 5 assertion FAIL palsu di run pertama: helper `make()` di test menyusun data
+  **ASC** (tahun lama dulu), padahal `get_indicator_data()` mengembalikan
+  **DESC**. Jadi `rows[1]` dianggap "tahun lalu" padahal itu nilai terkini.
+  Fix: susun `data = [latest, prev]` (DESC). **Fixture test harus meniru urutan
+  query nyata.**
+
+**Commit:** `49cf2a6` (pushed ke `master`, Render auto-deploy).
+
+**Catatan:** branch repo ini **`master`**, bukan `main` — `git push origin main`
+gagal dengan "src refspec main does not match any".
+
+**Error:** tidak ada (selain bug fixture test di atas).

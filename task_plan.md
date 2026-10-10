@@ -33,9 +33,12 @@ insight box, auto-update dari World Bank API, dan download CSV.
 | 12 | Review kode formal (@programmer) | programmer | complete — PASS WITH ISSUES, 0 critical |
 | 13 | Perbaikan bug unit KPI + temuan review | ketua_agen | complete — live |
 | 14 | Perbaikan insight kontradiktif + test dinamis | ketua_agen | complete — live |
+| 15 | Enhancement insight granular (4 peningkatan) | ketua_agen | complete — live, commit `49cf2a6` |
 
 **Kanban:** board `indonesia-economic-dashboard`, task `t_e2a1df69`, assignee leadengineer.
 **Notifikasi:** Telegram DM user (subscribed).
+
+**Branch git: `master`** (bukan `main`).
 
 ---
 
@@ -47,6 +50,9 @@ insight box, auto-update dari World Bank API, dan download CSV.
 | URL origin | https://inthiseconomy.onrender.com |
 | Repo | https://github.com/hafazahh/indonesia-economic-dashboard |
 | Verifikasi live | **15/15 PASS** (dijalankan terhadap domain custom) |
+| Test insight | **21/21 PASS** (21 skenario, 21 teks unik) |
+| Test KPI | **17/17 PASS** |
+| Insight box | Granular: inflasi 3 kondisi, PDB tren YoY, trade magnitude+arah, kombinasi makro |
 | `/healthz` | `{"status":"ok","scheduler_running":true,"rows_stored":176}` |
 | TLS | Google Trust Services WE1, verify code 0, valid s/d 8 Jan 2027 |
 | Render chart nyata | 3 chart Plotly, 5 titik data/trace, 9 SVG, 0 JS error |
@@ -68,9 +74,11 @@ python3 app.py                          # http://localhost:5000
 
 # Test (3 script, semua harus lulus)
 python3 test_kpi_units.py               # 17/17 PASS
-python3 test_insight_dynamic.py         # 11/11 PASS
+python3 test_insight_dynamic.py         # 21/21 PASS (21 skenario)
 BASE_URL=https://inthiseconomy.choirulhaq.com python3 verify_acceptance.py   # 15/15 PASS
 ```
+
+**Push:** branch `master` (bukan `main`).
 
 **Baca ini dulu:** `progress.md` (log lengkap per sesi), `findings.md` (temuan
 teknis + pelajaran), `docs/REVIEW.md` (hasil code review), `docs/PRD.md` (acuan).

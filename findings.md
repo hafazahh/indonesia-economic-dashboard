@@ -143,3 +143,30 @@ Contoh test yang benar: `test_insight_dynamic.py` — 5 skenario data, 11 assert
 termasuk cek konsistensi logika (`"lebih ketat" in text_high and "akomodatif"
 not in text_high`).
 
+
+---
+
+## Pelajaran: fixture test harus meniru urutan query nyata (2026-10-10)
+
+Saat memperluas `test_insight_dynamic.py` untuk enhancement insight granular,
+5 assertion langsung FAIL padahal kode `generate_insight()` benar.
+
+**Sebab:** helper `make()` di test menyusun list data **ASC** (tahun lama dulu):
+```python
+ data = [{"value": prev_v, "year": year - 1}, {"value": v, "year": year}]
+```
+Padahal `get_indicator_data()` di `models.py` mengembalikan **DESC**:
+```sql
+ORDER BY year DESC LIMIT ?
+```
+Jadi `rows[1]` yang kode pakai sebagai "tahun sebelumnya" justru berisi nilai
+terkini — tren YoY terbalik, dan frasa seperti "surplus melebar" salah muncul
+sebagai "surplus menyempit".
+
+**Fix:** `data = [{"value": v, "year": year}, {"value": prev_v, "year": year - 1}]`
+
+**Aturan:** fixture test harus mereplikasi **urutan dan bentuk** data yang
+benar-benar dihasilkan query produksi. Kalau tidak, test bisa gagal pada kode
+yang benar — dan lebih berbahaya, bisa lulus pada kode yang salah.
+
+Sumber urutan: `models.py` → `get_indicator_data()` → `ORDER BY year DESC`.
