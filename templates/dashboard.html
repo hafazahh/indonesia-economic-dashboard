@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Indonesia Economic Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; }
+        .kpi-card { border: none; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); transition: transform 0.2s; }
+        .kpi-card:hover { transform: translateY(-3px); }
+        .kpi-value { font-size: 2rem; font-weight: 700; }
+        .kpi-label { color: #6c757d; font-size: 0.9rem; }
+        .status-badge { font-size: 0.8rem; }
+        .insight-box { border-left: 4px solid #0d6efd; background: #e7f1ff; border-radius: 8px; }
+        .section-title { font-weight: 600; margin-bottom: 1rem; }
+        .chart-container { position: relative; height: 300px; }
+        footer { margin-top: 3rem; padding: 1.5rem 0; border-top: 1px solid #dee2e6; }
+    </style>
+</head>
+<body>
+<div class="container py-4">
+    <!-- Header -->
+    <header class="mb-4">
+        <h1>Indonesia Economic Dashboard</h1>
+        <p class="text-muted">Data Makro untuk Akademisi &amp; Pebisnis</p>
+    </header>
+
+    <!-- KPI Cards -->
+    <div class="row g-3 mb-4">
+        {% for kpi in kpis %}
+        <div class="col-md-4">
+            <div class="card kpi-card h-100">
+                <div class="card-body">
+                    <div class="kpi-label">{{ kpi.name }}</div>
+                    <div class="kpi-value">{{ kpi.formatted_value }}</div>
+                    <div class="mt-2">
+                        <span class="badge {{ kpi.change_badge_class }} status-badge">
+                            {{ kpi.change_arrow }}{{ kpi.formatted_change }}
+                        </span>
+                        <small class="text-muted">vs tahun lalu</small>
+                    </div>
+                    {% if kpi.status %}
+                    <div class="mt-2">
+                        <span class="badge {{ kpi.status_badge_class }} status-badge">{{ kpi.status }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Insight Box -->
+    <div class="insight-box p-3 mb-4">
+        <strong>Insight:</strong> {{ insight }}
+    </div>
+
+    <!-- Grafik Utama -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="section-title">Tren 5 Tahun: PDB Growth &amp; Inflasi</h5>
+            <div class="chart-container">{{ main_chart|safe }}</div>
+        </div>
+    </div>
+
+    <!-- Detail Charts -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="section-title">PDB Growth (Detail)</h5>
+                    <div class="chart-container">{{ pdb_chart|safe }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="section-title">Inflasi YoY (Detail)</h5>
+                    <div class="chart-container">{{ inflasi_chart|safe }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Proyeksi -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="section-title">Proyeksi (IMF WEO)</h5>
+            <table class="table table-striped">
+                <thead>
+                    <tr><th>Tahun</th><th>PDB Growth (%)</th><th>Inflasi (%)</th></tr>
+                </thead>
+                <tbody>
+                    {% for row in projection %}
+                    <tr>
+                        <td>{{ row.year }}</td>
+                        <td>{{ "%.1f"|format(row.pdb) }}</td>
+                        <td>{{ "%.1f"|format(row.inflasi) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <small class="text-muted">Sumber: IMF World Economic Outlook (hardcoded), data historis: World Bank.</small>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                <strong>Sumber Data:</strong> World Bank API, IMF WEO, BPS &nbsp;|&nbsp;
+                <strong>Last Updated:</strong> {{ last_updated }}
+            </div>
+            <a href="/download/csv" class="btn btn-outline-primary btn-sm">Download CSV</a>
+        </div>
+    </footer>
+</div>
+</body>
+</html>

@@ -1,0 +1,15 @@
+.venv/
+venv/
+__pycache__/
+*.pyc
+.DS_Store
+.env
+
+# SQLite database is generated at runtime — never commit it.
+# Committing it causes "database is locked" on Render: the file is held by
+# running processes and cannot be overwritten during deploy.
+economic_data.db
+economic_data.db-wal
+economic_data.db-shm
+economic_data.db-journal
+*.db-journal
