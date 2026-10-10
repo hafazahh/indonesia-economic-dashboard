@@ -182,3 +182,40 @@ andal perlu plan berbayar ($7/bulan, persistent disk).
 - Review formal `@programmer` — belum pernah terjadi.
 
 **Error:** tidak ada.
+
+---
+
+## Sesi 2026-10-10 — Custom Domain Aktif (ketua_agen + user)
+
+**Aksi:**
+- Domain `inthiseconomy.choirulhaq.com` sudah **Verified** + **Certificate Issued**
+  di Render; DNS Cloudflare sudah benar.
+
+**Tiga jebakan yang dilalui saat setup domain:**
+
+1. **Trailing slash di Target CNAME** — record tersimpan sebagai
+   `inthiseconomy.onrender.com/`. DNS mencari host dengan `/` → tidak ada →
+   error **1016** + verify gagal. Diperbaiki jadi tanpa slash.
+2. **Proxy Proxied sejak awal** — Render butuh **DNS only (grey cloud)** dulu
+   untuk verifikasi + terbitkan sertifikat. Baru setelah terbit boleh Proxied.
+3. **"Certificate Error" di dashboard = lag, bukan gagal.** Setelah domain
+   Verified, badge masih menampilkan Certificate Error padahal sertifikat sudah
+   aktif. Dibuktikan lewat pengecekan TLS langsung, bukan dari badge.
+
+**Verifikasi (domain custom, bukan origin):**
+- `verify_acceptance.py` dengan `BASE_URL=https://inthiseconomy.choirulhaq.com`:
+  **15/15 PASS**
+- TLS: `ssl_verify_result=0` (chain valid), issuer **Google Trust Services WE1**,
+  chain GTS Root R4, valid s/d 8 Jan 2027
+- Route: `/` 200 (30280 B) · `/healthz` 200 · `/health` 200 · `/download/csv` 200
+- HTTP → HTTPS: 301
+- `/healthz`: `{"rows_stored":176,"scheduler_running":true,"status":"ok"}`
+
+**Card website profil:**
+- Commit `70c674a` di repo `hafazahh/choirulhaq-profile-astro`, sudah live di
+  choirulhaq.com. Diverifikasi di browser: 3 card, switch ID/EN berfungsi,
+  link ke `https://inthiseconomy.choirulhaq.com`.
+
+**Yang belum:** Review formal `@programmer` — belum pernah terjadi.
+
+**Error:** tidak ada.

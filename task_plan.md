@@ -28,7 +28,8 @@ insight box, auto-update dari World Bank API, dan download CSV.
 | 7 | Push GitHub | ketua_agen | complete |
 | 8 | Kesiapan deploy (bug gunicorn) | ketua_agen | complete |
 | 9 | Deploy ke Render | user | **complete — LIVE** |
-| 10 | Custom domain `inthiseconomy.choirulhaq.com` | user | pending — DNS record belum ada |
+| 10 | Custom domain `inthiseconomy.choirulhaq.com` | user | **complete — Verified + Certificate Issued** |
+| 11 | Card di website profil choirulhaq.com | ketua_agen | complete — live |
 
 **Kanban:** board `indonesia-economic-dashboard`, task `t_e2a1df69`, assignee leadengineer.
 **Notifikasi:** Telegram DM user (subscribed).
@@ -39,13 +40,15 @@ insight box, auto-update dari World Bank API, dan download CSV.
 
 | Item | Nilai |
 |------|-------|
-| URL live | https://inthiseconomy.onrender.com |
+| URL live | https://inthiseconomy.choirulhaq.com |
+| URL origin | https://inthiseconomy.onrender.com |
 | Repo | https://github.com/hafazahh/indonesia-economic-dashboard |
-| Verifikasi live | **15/15 PASS** (dijalankan terhadap URL produksi) |
+| Verifikasi live | **15/15 PASS** (dijalankan terhadap domain custom) |
 | `/healthz` | `{"status":"ok","scheduler_running":true,"rows_stored":176}` |
+| TLS | Google Trust Services WE1, verify code 0, valid s/d 8 Jan 2027 |
 | Render chart nyata | 3 chart Plotly, 5 titik data/trace, 9 SVG, 0 JS error |
 | Cold start | 0.47 s |
-| Custom domain | ⏳ belum — DNS record `inthiseconomy` belum dibuat di Cloudflare |
+| Card di choirulhaq.com | ✅ live (commit `70c674a`) |
 
 ---
 
