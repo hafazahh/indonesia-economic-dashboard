@@ -276,3 +276,48 @@ review otomatis tidak menggantikan mata manusia pada domain yang dipahami.
 **Commit:** `d5d2c17`
 
 **Error:** tidak ada.
+
+---
+
+## Sesi 2026-10-10 — Insight Kontradiktif + Test Dinamis (ketua_agen)
+
+**Pertanyaan user:** apakah insight berubah otomatis kalau datanya berubah?
+
+**Jawaban:** ya. `generate_insight()` dihitung ulang tiap request dari isi DB,
+tidak ada teks yang disimpan. Alur: APScheduler fetch → SQLite → request `/`
+menghasilkan teks baru.
+
+**Tapi test untuk membuktikannya membongkar bug.** Insight menghasilkan kalimat
+bertentangan dengan dirinya sendiri:
+
+> "Inflasi 6.5% (2025) **di luar target BI**, memberikan ruang bagi kebijakan
+> moneter yang stabil."
+
+Kondisi ("di luar target") ikut berubah bersama data, tapi **kesimpulannya
+hardcoded** — selalu "memberikan ruang kebijakan stabil". Untuk dashboard yang
+dikutip akademisi, ini berbahaya.
+
+**Fix:** kesimpulan sekarang mengikuti data.
+- Inflasi dalam target → "kebijakan moneter yang akomodatif"
+- Inflasi di luar target → "menuntut kebijakan moneter yang lebih ketat"
+- PDB lemah → tidak lagi klaim "mendukung ekspansi pasar domestik"
+- Kode indikator pakai konstanta (`GDP_GROWTH_CODE`, dll)
+
+**Test baru:** `test_insight_dynamic.py` — 5 skenario data, **11/11 PASS**,
+termasuk assertion konsistensi logika per cabang
+(`"lebih ketat" in text_high and "akomodatif" not in text_high`).
+
+**Verifikasi:**
+- `test_insight_dynamic.py` — 11/11 PASS (5 skenario → 5 teks unik)
+- `test_kpi_units.py` — tetap lulus (tidak ada regresi)
+- `verify_acceptance.py` — 15/15 PASS
+- Live: "...memberikan ruang bagi kebijakan moneter yang **akomodatif**"
+
+**Commit:** `5a74e8f` (fix), `041609a` (dokumentasi pelajaran)
+
+**Catatan:** ini bug KEDUA yang lolos code review + smoke test + acceptance
+script, dan ditemukan user dengan membaca output. Akar masalah sama: verifikasi
+mengecek "apakah merespons", bukan "apakah isinya masuk akal". Aturan baru
+tercatat di SOP §8, skill `requesting-code-review`, dan `findings.md`.
+
+**Error:** tidak ada.

@@ -32,6 +32,7 @@ insight box, auto-update dari World Bank API, dan download CSV.
 | 11 | Card di website profil choirulhaq.com | ketua_agen | complete — live |
 | 12 | Review kode formal (@programmer) | programmer | complete — PASS WITH ISSUES, 0 critical |
 | 13 | Perbaikan bug unit KPI + temuan review | ketua_agen | complete — live |
+| 14 | Perbaikan insight kontradiktif + test dinamis | ketua_agen | complete — live |
 
 **Kanban:** board `indonesia-economic-dashboard`, task `t_e2a1df69`, assignee leadengineer.
 **Notifikasi:** Telegram DM user (subscribed).
@@ -51,6 +52,33 @@ insight box, auto-update dari World Bank API, dan download CSV.
 | Render chart nyata | 3 chart Plotly, 5 titik data/trace, 9 SVG, 0 JS error |
 | Cold start | 0.47 s |
 | Card di choirulhaq.com | ✅ live (commit `70c674a`) |
+
+---
+
+## Cara Resume di Sesi Baru
+
+**Status: project SELESAI & LIVE.** Tidak ada pekerjaan menggantung.
+
+```bash
+cd /home/choirulhaq/venvProject/indonesia-economic-dashboard
+source /home/choirulhaq/venvProject/venv/bin/activate
+
+# Jalankan lokal
+python3 app.py                          # http://localhost:5000
+
+# Test (3 script, semua harus lulus)
+python3 test_kpi_units.py               # 17/17 PASS
+python3 test_insight_dynamic.py         # 11/11 PASS
+BASE_URL=https://inthiseconomy.choirulhaq.com python3 verify_acceptance.py   # 15/15 PASS
+```
+
+**Baca ini dulu:** `progress.md` (log lengkap per sesi), `findings.md` (temuan
+teknis + pelajaran), `docs/REVIEW.md` (hasil code review), `docs/PRD.md` (acuan).
+
+**Yang belum dikerjakan (di luar scope PRD v1.1):** data kuartalan/bulanan,
+indikator tambahan (kurs, investasi, pengangguran, sektor), chart interaktif,
+proyeksi dari API (sekarang hardcode IMF), desain lebih branded.
+Butuh PRD baru sebelum dikerjakan.
 
 ---
 
