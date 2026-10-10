@@ -80,18 +80,39 @@ def compute_kpis(data):
 
 
 def generate_insight(data):
-    """Generate insight text from latest data."""
-    pdb = data.get("NY.GDP.MKTP.KD.ZG", {}).get("latest")
-    inflasi = data.get("FP.CPI.TOTL.ZG", {}).get("latest")
-    trade = data.get("BN.GSR.GNFS.CD", {}).get("latest")
+    """Generate insight text from the latest data.
+
+    Recomputed on every request from whatever is in the database, so the text
+    follows the data automatically after each scheduled refresh.
+    """
+    pdb = data.get(GDP_GROWTH_CODE, {}).get("latest")
+    inflasi = data.get(INFLATION_CODE, {}).get("latest")
+    trade = data.get(TRADE_BALANCE_CODE, {}).get("latest")
     parts = []
     if pdb:
-        parts.append(f"Pertumbuhan PDB {pdb['value']:.1f}% ({pdb['year']}) menunjukkan perekonomian Indonesia {'masih solid' if pdb['value'] >= 5 else 'tumbuh moderat'}. Bagi pebisnis, kondisi ini {'mendukung ekspansi pasar domestik' if pdb['value'] >= 5 else 'menjaga stabilitas pasar'}.")
+        solid = pdb["value"] >= 5
+        parts.append(
+            f"Pertumbuhan PDB {pdb['value']:.1f}% ({pdb['year']}) menunjukkan "
+            f"perekonomian Indonesia {'masih solid' if solid else 'tumbuh moderat'}. "
+            f"Bagi pebisnis, kondisi ini "
+            f"{'mendukung ekspansi pasar domestik' if solid else 'mendorong kehati-hatian dalam ekspansi'}."
+        )
     if inflasi:
-        parts.append(f"Inflasi {inflasi['value']:.1f}% ({inflasi['year']}) {'berada dalam target BI (2-4%)' if inflasi['value'] <= 4 else 'di luar target BI'}, memberikan ruang bagi kebijakan moneter yang stabil.")
+        # The conclusion must follow the data: inflation outside the BI target
+        # does NOT leave room for an accommodative stance.
+        in_target = inflasi["value"] <= 4.0
+        parts.append(
+            f"Inflasi {inflasi['value']:.1f}% ({inflasi['year']}) "
+            f"{'berada dalam target BI (2-4%)' if in_target else 'di luar target BI'}, "
+            f"{'memberikan ruang bagi kebijakan moneter yang akomodatif' if in_target else 'menuntut kebijakan moneter yang lebih ketat'}."
+        )
     if trade:
-        status = "surplus" if trade["value"] > 0 else "defisit"
-        parts.append(f"Neraca perdagangan mencatat {status} {abs(trade['value']) / 1e9:.1f} miliar USD ({trade['year']}), mencerminkan {'kinerja ekspor yang kuat' if trade['value'] > 0 else 'tekanan pada sektor perdagangan'}.")
+        surplus = trade["value"] > 0
+        parts.append(
+            f"Neraca perdagangan mencatat {'surplus' if surplus else 'defisit'} "
+            f"{abs(trade['value']) / 1e9:.1f} miliar USD ({trade['year']}), "
+            f"mencerminkan {'kinerja ekspor yang kuat' if surplus else 'tekanan pada sektor perdagangan'}."
+        )
     return " ".join(parts)
 
 
