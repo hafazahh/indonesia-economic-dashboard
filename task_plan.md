@@ -30,6 +30,8 @@ insight box, auto-update dari World Bank API, dan download CSV.
 | 9 | Deploy ke Render | user | **complete — LIVE** |
 | 10 | Custom domain `inthiseconomy.choirulhaq.com` | user | **complete — Verified + Certificate Issued** |
 | 11 | Card di website profil choirulhaq.com | ketua_agen | complete — live |
+| 12 | Review kode formal (@programmer) | programmer | complete — PASS WITH ISSUES, 0 critical |
+| 13 | Perbaikan bug unit KPI + temuan review | ketua_agen | complete — live |
 
 **Kanban:** board `indonesia-economic-dashboard`, task `t_e2a1df69`, assignee leadengineer.
 **Notifikasi:** Telegram DM user (subscribed).

@@ -219,3 +219,60 @@ andal perlu plan berbayar ($7/bulan, persistent disk).
 **Yang belum:** Review formal `@programmer` — belum pernah terjadi.
 
 **Error:** tidak ada.
+
+---
+
+## Sesi 2026-10-10 — Review Formal + Perbaikan Bug KPI (ketua_agen + programmer)
+
+**Review formal akhirnya dijalankan** oleh `@programmer` (sesuai SOP).
+Catatan: model profile `programmer` mati (`solar-pro4:free` free period ended)
+— config diganti ke `meituan/longcat-2.5-preview:free` (backup:
+`config.yaml.bak-20261010-161858`).
+
+**Hasil review:** PASS WITH ISSUES — 0 critical, 3 warning, 6 suggestion.
+Laporan lengkap: `docs/REVIEW.md`.
+
+### Bug CRITICAL yang ditemukan USER (bukan reviewer)
+
+KPI Trade Balance menampilkan **`+8295823081.86 pp`** — angka USD mentah
+dilabeli "pp" (percentage point). Ini merusak kredibilitas dashboard.
+
+**Root cause:** `app.py:54` memaksa format `f"{change_pct:.2f} pp"` untuk
+**semua** indikator, tanpa membedakan satuan. Trade Balance satuannya USD,
+bukan persen.
+
+**Fix:** fungsi `format_change(code, change)` — indikator persen tetap `pp`,
+Trade Balance jadi `miliar USD`.
+
+Hasil sekarang (live):
+| KPI | Nilai | Perubahan |
+|---|---|---|
+| PDB Growth | 5.11% | +0.08 pp |
+| Inflasi | 1.91% | -0.27 pp |
+| Trade Balance | 29.6 miliar USD | **+8.3 miliar USD** |
+
+**Catatan penting:** reviewer independen TIDAK menemukan bug ini meski
+diminta memeriksa `compute_kpis()`. Yang menemukan adalah user. Pelajaran:
+review otomatis tidak menggantikan mata manusia pada domain yang dipahami.
+
+### Temuan review yang juga diperbaiki
+
+- **W1** `models.py` — koneksi bocor kalau exception sebelum `close()`.
+  Semua koneksi sekarang lewat context manager `db()`. WAL dipindah ke
+  `init_db()` (dulu di-set tiap koneksi = overhead per request).
+- **W2** Dashboard kosong tanpa penjelasan kalau World Bank API down saat boot.
+  Sekarang tampil `alert alert-warning` + pesan di insight box.
+- **W3** CSV injection — nilai yang diawali `= + - @` di-prefix `'`.
+- **S3** Data < 2 baris → `Data tidak cukup` (dulu `0.00 pp` membingungkan).
+- Kode indikator dijadikan konstanta (`GDP_GROWTH_CODE`, dll).
+
+### Verifikasi perbaikan
+
+- `test_kpi_units.py` — **17/17 PASS** (test baru, khusus bug unit + temuan review)
+- `verify_acceptance.py` — **15/15 PASS** (via gunicorn, DB dari kosong)
+- Browser nyata live: `+8.3 miliar USD` / `+0.08 pp` / `-0.27 pp`
+- Bukti: `kpi_fixed_live.png`
+
+**Commit:** `d5d2c17`
+
+**Error:** tidak ada.
