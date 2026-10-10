@@ -1,5 +1,4 @@
 """Buktikan insight berubah otomatis saat data berubah.
-
 Menjalankan generate_insight() dengan beberapa skenario data dan membandingkan
 teks yang dihasilkan. Kalau teksnya ikut berubah, berarti insight dinamis.
 """
@@ -14,22 +13,42 @@ INF = "FP.CPI.TOTL.ZG"
 TRD = "BN.GSR.GNFS.CD"
 
 
-def make(pdb, inf, trd, year=2025):
-    def latest(code, v):
-        return {code: {"name": code, "data": [], "latest": {"value": v, "year": year}}}
+def make(pdb, inf, trd, year=2025, pdb_prev=None, inf_prev=None, trd_prev=None):
+    def latest(code, v, prev_v=None):
+        # Order DESC by year (matches get_indicator_data SQL ORDER BY year DESC)
+        data = [{"value": v, "year": year}]
+        if prev_v is not None:
+            data.append({"value": prev_v, "year": year - 1})
+        return {code: {"name": code, "data": data, "latest": {"value": v, "year": year}}}
     d = {}
-    d.update(latest(GDP, pdb))
-    d.update(latest(INF, inf))
-    d.update(latest(TRD, trd))
+    d.update(latest(GDP, pdb, pdb_prev))
+    d.update(latest(INF, inf, inf_prev))
+    d.update(latest(TRD, trd, trd_prev))
     return d
 
 
 scenarios = [
-    ("Data sekarang (nyata 2025)", make(5.108, 1.913, 29649335679.15)),
-    ("PDB turun ke 3.2% (lemah)",  make(3.2, 1.913, 29649335679.15)),
-    ("Inflasi naik ke 6.5% (tinggi)", make(5.108, 6.5, 29649335679.15)),
-    ("Trade balance defisit",      make(5.108, 1.913, -12500000000.0)),
-    ("Semua indikator memburuk",   make(2.0, 8.0, -5000000000.0)),
+    ("Data sekarang (nyata 2025)", make(5.108, 1.913, 29649335679.15, pdb_prev=4.9, inf_prev=2.5, trd_prev=25000000000.0)),
+    ("PDB naik (membaik)",       make(5.5, 1.913, 29649335679.15, pdb_prev=4.9)),
+    ("PDB turun tapi >=5%",       make(5.1, 1.913, 29649335679.15, pdb_prev=5.5)),
+    ("PDB 4.5-5% (melambat)",    make(4.7, 1.913, 29649335679.15, pdb_prev=5.0)),
+    ("PDB <4.5% (moderat)",      make(3.2, 1.913, 29649335679.15, pdb_prev=4.0)),
+    ("Inflasi <2% (bawah)",      make(5.108, 1.5, 29649335679.15)),
+    ("Inflasi 2-4% (dalam)",     make(5.108, 3.0, 29649335679.15)),
+    ("Inflasi >4% (atas)",       make(5.108, 6.5, 29649335679.15)),
+    ("Trade surplus besar",      make(5.108, 1.913, 25000000000.0)),
+    ("Trade surplus moderat",    make(5.108, 1.913, 15000000000.0)),
+    ("Trade surplus kecil",      make(5.108, 1.913, 5000000000.0)),
+    ("Trade defisit",            make(5.108, 1.913, -12500000000.0)),
+    ("Trade surplus melebar",    make(5.108, 1.913, 30000000000.0, trd_prev=20000000000.0)),
+    ("Trade surplus menyempit",  make(5.108, 1.913, 20000000000.0, trd_prev=30000000000.0)),
+    ("Trade defisit melebar",    make(5.108, 1.913, -15000000000.0, trd_prev=-5000000000.0)),
+    ("Trade defisit menyempit",  make(5.108, 1.913, -5000000000.0, trd_prev=-15000000000.0)),
+    ("Trade berubah dari defisit", make(5.108, 1.913, 5000000000.0, trd_prev=-5000000000.0)),
+    ("Trade berubah dari surplus", make(5.108, 1.913, -5000000000.0, trd_prev=5000000000.0)),
+    ("Kombinasi: growth tinggi + inflasi rendah", make(5.5, 1.5, 29649335679.15)),
+    ("Kombinasi: growth melambat + inflasi tinggi", make(4.0, 6.5, 29649335679.15)),
+    ("Semua indikator memburuk", make(2.0, 8.0, -5000000000.0)),
 ]
 
 print("=" * 78)
@@ -52,23 +71,38 @@ print(f"Skenario diuji           : {len(scenarios)}")
 print(f"Teks insight unik        : {unique}")
 
 # Cek frasa kunci ikut berubah
-base = texts[0]
 checks = [
-    ("PDB 3.2% memicu frasa 'tumbuh moderat'", "tumbuh moderat" in texts[1]),
-    ("PDB 5.1% memicu frasa 'masih solid'", "masih solid" in texts[0]),
-    ("Inflasi 6.5% memicu 'di luar target BI'", "di luar target BI" in texts[2]),
-    ("Inflasi 1.9% memicu 'dalam target BI'", "dalam target BI" in texts[0]),
-    ("Trade negatif memicu 'defisit'", "defisit" in texts[3]),
-    ("Trade positif memicu 'surplus'", "surplus" in texts[0]),
+    # PDB trend
+    ("PDB naik -> 'solid dan membaik'", "solid dan membaik" in texts[1]),
+    ("PDB turun >=5% -> 'masih solid meskipun melambat'", "masih solid meskipun melambat" in texts[2]),
+    ("PDB 4.5-5% -> 'melambat'", "melambat" in texts[3]),
+    ("PDB <4.5% -> 'moderat'", "moderat" in texts[4]),
+    # Inflasi 3 kondisi
+    ("Inflasi <2% -> 'di bawah target BI'", "di bawah target BI" in texts[5]),
+    ("Inflasi <2% -> 'akomodatif'", "akomodatif" in texts[5]),
+    ("Inflasi 2-4% -> 'dalam target BI'", "dalam target BI" in texts[6]),
+    ("Inflasi >4% -> 'di atas target BI'", "di atas target BI" in texts[7]),
+    ("Inflasi >4% -> 'menekan ruang'", "menekan ruang" in texts[7]),
+    # Trade magnitude
+    ("Surplus besar -> 'surplus besar'", "surplus besar" in texts[8]),
+    ("Surplus moderat -> 'surplus moderat'", "surplus moderat" in texts[9]),
+    ("Surplus kecil -> 'surplus kecil'", "surplus kecil" in texts[10]),
+    ("Defisit -> 'defisit'", "defisit" in texts[11]),
+    # Trade YoY
+    ("Surplus melebar -> 'surplus melebar'", "surplus melebar" in texts[12]),
+    ("Surplus menyempit -> 'surplus menyempit'", "surplus menyempit" in texts[13]),
+    ("Defisit melebar -> 'defisit melebar'", "defisit melebar" in texts[14]),
+    ("Defisit menyempit -> 'defisit menyempit'", "defisit menyempit" in texts[15]),
+    ("Berubah dari defisit -> 'berubah dari defisit'", "berubah dari defisit" in texts[16]),
+    ("Berubah dari surplus -> 'berubah dari surplus'", "berubah dari surplus" in texts[17]),
+    # Kombinasi
+    ("Growth tinggi + inflasi rendah -> 'mendukung ekspansi'", "mendukung ekspansi" in texts[18]),
+    ("Growth melambat + inflasi tinggi -> 'kehati-hatian'", "kehati-hatian" in texts[19]),
+    # Konsistensi
+    ("Inflasi tinggi -> tidak klaim 'akomodatif'", "akomodatif" not in texts[7]),
+    ("PDB lemah -> tidak klaim 'ekspansi pasar domestik'", "ekspansi pasar domestik" not in texts[4]),
     ("Angka tahun ikut tampil", "(2025)" in texts[0]),
     ("Angka nilai ikut tampil", "5.1%" in texts[0] and "1.9%" in texts[0]),
-    # Konsistensi kesimpulan dengan data (bug yang ditemukan lewat test ini)
-    ("Inflasi tinggi -> 'lebih ketat', bukan 'akomodatif'",
-     "lebih ketat" in texts[2] and "akomodatif" not in texts[2]),
-    ("Inflasi dalam target -> 'akomodatif'",
-     "akomodatif" in texts[0]),
-    ("PDB lemah -> tidak klaim 'ekspansi pasar domestik'",
-     "ekspansi pasar domestik" not in texts[1]),
 ]
 
 print()

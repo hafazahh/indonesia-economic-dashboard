@@ -53,12 +53,15 @@ def compute_kpis(data):
         arrow = "+" if change > 0 else ("-" if change < 0 else "")
         change_badge = "bg-success" if change >= 0 else "bg-danger"
         if code == "FP.CPI.TOTL.ZG":
-            # Inflation: lower is better (within target)
-            if latest["value"] <= 4.0:
+            # Inflation: 3 granular conditions
+            if latest["value"] < 2.0:
+                status = "Di bawah target BI"
+                status_badge = "bg-info"
+            elif latest["value"] <= 4.0:
                 status = "Dalam target BI"
                 status_badge = "bg-success"
             else:
-                status = "Di luar target BI"
+                status = "Di atas target BI"
                 status_badge = "bg-danger"
             change_badge = "bg-danger" if change > 0 else "bg-success"
         else:
@@ -85,34 +88,117 @@ def generate_insight(data):
     Recomputed on every request from whatever is in the database, so the text
     follows the data automatically after each scheduled refresh.
     """
-    pdb = data.get(GDP_GROWTH_CODE, {}).get("latest")
-    inflasi = data.get(INFLATION_CODE, {}).get("latest")
-    trade = data.get(TRADE_BALANCE_CODE, {}).get("latest")
+    pdb_info = data.get(GDP_GROWTH_CODE, {})
+    inflasi_info = data.get(INFLATION_CODE, {})
+    trade_info = data.get(TRADE_BALANCE_CODE, {})
+
+    pdb = pdb_info.get("latest")
+    inflasi = inflasi_info.get("latest")
+    trade = trade_info.get("latest")
+
+    # Previous-year rows for trend analysis (data is ordered year DESC).
+    pdb_rows = pdb_info.get("data", [])
+    inflasi_rows = inflasi_info.get("data", [])
+    trade_rows = trade_info.get("data", [])
+
+    pdb_prev = pdb_rows[1] if len(pdb_rows) > 1 else None
+    inflasi_prev = inflasi_rows[1] if len(inflasi_rows) > 1 else None
+    trade_prev = trade_rows[1] if len(trade_rows) > 1 else None
+
     parts = []
+
+    # 1. PDB Growth — dengan konteks tren YoY
     if pdb:
-        solid = pdb["value"] >= 5
+        val = pdb["value"]
+        if pdb_prev:
+            change = val - pdb_prev["value"]
+            if change > 0:
+                trend = "solid dan membaik"
+            elif val >= 5.0:
+                trend = "masih solid meskipun melambat"
+            elif val >= 4.5:
+                trend = "melambat"
+            else:
+                trend = "moderat"
+        else:
+            trend = "solid" if val >= 5.0 else "moderat"
+
         parts.append(
-            f"Pertumbuhan PDB {pdb['value']:.1f}% ({pdb['year']}) menunjukkan "
-            f"perekonomian Indonesia {'masih solid' if solid else 'tumbuh moderat'}. "
+            f"Pertumbuhan PDB {val:.1f}% ({pdb['year']}) menunjukkan "
+            f"perekonomian Indonesia {trend}. "
             f"Bagi pebisnis, kondisi ini "
-            f"{'mendukung ekspansi pasar domestik' if solid else 'mendorong kehati-hatian dalam ekspansi'}."
+            f"{'mendukung ekspansi pasar domestik' if val >= 5.0 else 'mendorong kehati-hatian dalam ekspansi'}."
         )
+
+    # 2. Inflasi — 3 kondisi granular
     if inflasi:
-        # The conclusion must follow the data: inflation outside the BI target
-        # does NOT leave room for an accommodative stance.
-        in_target = inflasi["value"] <= 4.0
+        val = inflasi["value"]
+        if val < 2.0:
+            kondisi = "di bawah target BI (2-4%), memberi ruang kebijakan moneter yang akomodatif"
+        elif val <= 4.0:
+            kondisi = "berada dalam target BI (2-4%)"
+        else:
+            kondisi = "di atas target BI (2-4%), menekan ruang kebijakan moneter"
+
         parts.append(
-            f"Inflasi {inflasi['value']:.1f}% ({inflasi['year']}) "
-            f"{'berada dalam target BI (2-4%)' if in_target else 'di luar target BI'}, "
-            f"{'memberikan ruang bagi kebijakan moneter yang akomodatif' if in_target else 'menuntut kebijakan moneter yang lebih ketat'}."
+            f"Inflasi {val:.1f}% ({inflasi['year']}) {kondisi}."
         )
+
+    # 3. Trade Balance — magnitude + YoY trend
     if trade:
-        surplus = trade["value"] > 0
+        val = trade["value"]
+        surplus = val > 0
+        magnitude = abs(val) / 1e9
+
+        if surplus:
+            if magnitude >= 20:
+                desc = "surplus besar"
+            elif magnitude >= 10:
+                desc = "surplus moderat"
+            else:
+                desc = "surplus kecil"
+        else:
+            if magnitude >= 20:
+                desc = "defisit besar"
+            elif magnitude >= 10:
+                desc = "defisit moderat"
+            else:
+                desc = "defisit kecil"
+
+        # YoY trend
+        yoy_text = ""
+        if trade_prev:
+            prev_val = trade_prev["value"]
+            if surplus and prev_val > 0:
+                if val > prev_val:
+                    yoy_text = ", surplus melebar"
+                else:
+                    yoy_text = ", surplus menyempit"
+            elif not surplus and prev_val < 0:
+                if val < prev_val:
+                    yoy_text = ", defisit melebar"
+                else:
+                    yoy_text = ", defisit menyempit"
+            elif surplus and prev_val <= 0:
+                yoy_text = ", berubah dari defisit"
+            elif not surplus and prev_val >= 0:
+                yoy_text = ", berubah dari surplus"
+
         parts.append(
-            f"Neraca perdagangan mencatat {'surplus' if surplus else 'defisit'} "
-            f"{abs(trade['value']) / 1e9:.1f} miliar USD ({trade['year']}), "
+            f"Neraca perdagangan mencatat {desc} "
+            f"{magnitude:.1f} miliar USD ({trade['year']}){yoy_text}, "
             f"mencerminkan {'kinerja ekspor yang kuat' if surplus else 'tekanan pada sektor perdagangan'}."
         )
+
+    # 4. Kombinasi kondisi makro
+    if pdb and inflasi:
+        pdb_val = pdb["value"]
+        inf_val = inflasi["value"]
+        if pdb_val >= 5.0 and inf_val < 2.0:
+            parts.append("Kombinasi pertumbuhan tinggi dan inflasi rendah menciptakan kondisi makro yang mendukung ekspansi.")
+        elif pdb_val < 4.5 and inf_val > 4.0:
+            parts.append("Pertumbuhan yang melambat dengan inflasi tinggi memerlukan kehati-hatian dalam pengambilan keputusan.")
+
     return " ".join(parts)
 
 
