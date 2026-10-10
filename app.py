@@ -181,8 +181,13 @@ def download_csv():
 
 
 @app.route("/health")
+@app.route("/healthz")
 def health():
-    """Health check. Reports scheduler state so a deploy can be verified."""
+    """Health check. Reports scheduler state so a deploy can be verified.
+
+    Served at both /health and /healthz: Render's default Health Check Path is
+    /healthz, and a 404 there makes Render treat the deploy as failed.
+    """
     return {
         "status": "ok",
         "timestamp": datetime.utcnow().isoformat(),
