@@ -2,9 +2,12 @@
 import csv
 import io
 import os
+import re
+import secrets
 import sys
 from datetime import datetime
-from flask import Flask, render_template, Response
+from flask import Flask, Response, g, render_template, request
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 sys.path.insert(0, os.path.dirname(__file__))
 from models import init_db, get_all_data, get_last_updated, count_rows
@@ -12,6 +15,87 @@ from data_fetcher import fetch_all
 from scheduler import start_scheduler, stop_scheduler, scheduler_running
 
 app = Flask(__name__)
+
+# Render terminates TLS and forwards to gunicorn over plain HTTP, so without
+# ProxyFix request.is_secure is always False and the HSTS branch in
+# apply_security_headers() would silently never fire. The =1 values mean
+# "trust exactly one proxy hop" — raising them lets a client spoof the header.
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
+# --- Security headers -------------------------------------------------------
+#
+# Graded by securityheaders.com. HSTS is sent over HTTPS only: sending it on a
+# plain-HTTP response can pin a browser to a scheme the host does not serve.
+# 'preload' is deliberately omitted — it is effectively irreversible and an
+# owner decision, not a sensible default.
+HSTS_VALUE = "max-age=31536000; includeSubDomains"
+
+# Third-party origins this dashboard genuinely loads: Plotly's runtime from the
+# plot.ly CDN, Bootstrap's stylesheet from jsDelivr. Nothing else is allowed.
+PLOTLY_CDN = "https://cdn.plot.ly"
+BOOTSTRAP_CDN = "https://cdn.jsdelivr.net"
+
+PERMISSIONS_POLICY = ", ".join([
+    "accelerometer=()", "autoplay=()", "camera=()", "geolocation=()",
+    "gyroscope=()", "magnetometer=()", "microphone=()", "payment=()", "usb=()",
+])
+
+# Inline <script> blocks only. A tag carrying src= is covered by the host
+# allowlist in script-src instead.
+_INLINE_SCRIPT_RE = re.compile(r"<script(?![^>]*\bsrc=)(?![^>]*\bnonce=)", re.I)
+
+
+def build_csp(nonce):
+    """CSP for this response, allowing inline scripts only via this nonce.
+
+    Plotly's to_html() emits inline blocks, so script-src cannot be a bare
+    'self' — but a per-response nonce keeps 'unsafe-inline' out of the policy,
+    which is what separates grade A from A+.
+    """
+    return "; ".join([
+        "default-src 'self'",
+        f"script-src 'nonce-{nonce}' {PLOTLY_CDN}",
+        f"style-src 'self' 'unsafe-inline' {BOOTSTRAP_CDN}",
+        f"font-src 'self' data: {BOOTSTRAP_CDN}",
+        "img-src 'self' data:",
+        "connect-src 'self'",
+        "frame-ancestors 'none'",
+        "base-uri 'self'",
+        "object-src 'none'",
+        "form-action 'self'",
+    ])
+
+
+def apply_nonce(html, nonce):
+    """Stamp every inline <script> in a rendered fragment with the CSP nonce.
+
+    Without this the charts are blocked in every real browser while curl still
+    sees a 200 — the failure is invisible outside a browser.
+    """
+    return _INLINE_SCRIPT_RE.sub(f'<script nonce="{nonce}"', html)
+
+
+@app.before_request
+def issue_csp_nonce():
+    """A fresh nonce per response. A reused nonce is as good as 'unsafe-inline'."""
+    g.csp_nonce = secrets.token_urlsafe(16)
+
+
+@app.after_request
+def apply_security_headers(response):
+    """Attach the security header set to every response, HTML or not."""
+    nonce = getattr(g, "csp_nonce", None)
+    if nonce:
+        response.headers.setdefault("Content-Security-Policy", build_csp(nonce))
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("Permissions-Policy", PERMISSIONS_POLICY)
+    response.headers.setdefault("Cross-Origin-Opener-Policy", "same-origin")
+    response.headers.setdefault("Cross-Origin-Resource-Policy", "same-origin")
+    if request.is_secure:
+        response.headers.setdefault("Strict-Transport-Security", HSTS_VALUE)
+    return response
 
 # Indicator codes. Defined once so a typo cannot silently desynchronise the
 # formatting logic from the fetch/schema logic.
@@ -283,9 +367,11 @@ def dashboard():
         )
 
     # Plotly charts (PRD §9). Built server-side, embedded as inline HTML.
-    main_chart = build_main_chart(years, pdb_values, inflasi_values)
-    pdb_chart = build_single_chart(years, pdb_values, "PDB Growth (%)", "#0d6efd")
-    inflasi_chart = build_single_chart(years, inflasi_values, "Inflasi YoY (%)", "#dc3545")
+    # Each block needs this response's nonce or the CSP blocks it in the browser.
+    nonce = g.csp_nonce
+    main_chart = apply_nonce(build_main_chart(years, pdb_values, inflasi_values), nonce)
+    pdb_chart = apply_nonce(build_single_chart(years, pdb_values, "PDB Growth (%)", "#0d6efd"), nonce)
+    inflasi_chart = apply_nonce(build_single_chart(years, inflasi_values, "Inflasi YoY (%)", "#dc3545"), nonce)
 
     return render_template(
         "dashboard.html",

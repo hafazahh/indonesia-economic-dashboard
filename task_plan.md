@@ -34,6 +34,46 @@ insight box, auto-update dari World Bank API, dan download CSV.
 | 13 | Perbaikan bug unit KPI + temuan review | ketua_agen | complete — live |
 | 14 | Perbaikan insight kontradiktif + test dinamis | ketua_agen | complete — live |
 | 15 | Enhancement insight granular (4 peningkatan) | ketua_agen | complete — live, commit `49cf2a6` |
+| 16 | Security headers → grade A+ (CSP nonce, HSTS, dll) | ketua_agen | in_progress |
+
+### Fase 16 — Security Headers (2026-10-12)
+
+**Trigger:** user kirim screenshot securityheaders.com — grade **F**, semua header absen.
+
+**Audit live (sebelum fix):** nol header keamanan di kedua layer —
+`inthiseconomy.choirulhaq.com` (Cloudflare) dan `inthiseconomy.onrender.com`
+(origin gunicorn). Jadi tidak ada layer yang menambahkan; harus dari app.
+
+**Audit isi HTML (bukan grep source):**
+| Temuan | Jumlah |
+|---|---|
+| inline `<script>` tanpa src | 5 (2 per chart Plotly) |
+| inline event handler (`on*=` attr) | 0 |
+| `javascript:` URL | 0 |
+| script eksternal | 1 — `cdn.plot.ly/plotly-4.1.1.min.js` (ada SRI) |
+| stylesheet eksternal | 1 — `cdn.jsdelivr.net/.../bootstrap.min.css` |
+| `<img>` eksternal | 0 |
+
+→ Inline script memang ada (Plotly), jadi `script-src 'self'` saja akan
+mematikan semua chart. Tapi tidak ada handler attribute, jadi **nonce** cukup
+dan `'unsafe-inline'` tidak perlu — itu yang memisahkan A dari A+.
+
+**Rencana:**
+1. `ProxyFix(x_for=1, x_proto=1, x_host=1)` — tanpa ini `request.is_secure`
+   selalu False di belakang Cloudflare/Render dan cabang HSTS diam-diam mati.
+2. Nonce per response (`secrets.token_urlsafe(16)`) di `before_request`.
+3. `after_request`: CSP + X-Content-Type-Options + X-Frame-Options +
+   Referrer-Policy + Permissions-Policy + COOP/CORP; HSTS **hanya kalau
+   `request.is_secure`**, tanpa `preload`.
+4. `apply_nonce()` menyisipkan nonce ke setiap inline `<script>` keluaran Plotly.
+5. Test `test_security_headers.py` — termasuk kasus negatif HSTS absen di HTTP
+   dan nonce harus unik per response.
+6. Verifikasi **browser nyata**: chart harus tetap render, 0 CSP violation.
+   Test client Flask tidak menegakkan CSP, jadi lulus test ≠ aman.
+7. Push → Render auto-deploy → re-audit curl + securityheaders.com.
+
+**Keputusan:** header di app (bukan dashboard Cloudflare) — versioned, reviewable,
+survive misclick dashboard.
 
 **Kanban:** board `indonesia-economic-dashboard`, task `t_e2a1df69`, assignee leadengineer.
 **Notifikasi:** Telegram DM user (subscribed).
