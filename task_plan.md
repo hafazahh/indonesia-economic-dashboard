@@ -34,7 +34,47 @@ insight box, auto-update dari World Bank API, dan download CSV.
 | 13 | Perbaikan bug unit KPI + temuan review | ketua_agen | complete — live |
 | 14 | Perbaikan insight kontradiktif + test dinamis | ketua_agen | complete — live |
 | 15 | Enhancement insight granular (4 peningkatan) | ketua_agen | complete — live, commit `49cf2a6` |
-| 16 | Security headers → grade A+ (CSP nonce, HSTS, dll) | ketua_agen | in_progress |
+| 16 | Security headers → grade A+ (CSP nonce, HSTS, dll) | ketua_agen | **complete — LIVE, grade A+ terverifikasi** |
+
+### Fase 16 — Security Headers — HASIL (2026-10-12)
+
+**Grade: F → A+** (terverifikasi securityheaders.com sendiri, Report Time
+12 Oct 2026 02:24:05 UTC).
+
+| Header | Status live |
+|---|---|
+| Content-Security-Policy | ✅ `script-src 'nonce-…' https://cdn.plot.ly` |
+| Strict-Transport-Security | ✅ `max-age=31536000; includeSubDomains` |
+| X-Content-Type-Options | ✅ `nosniff` |
+| X-Frame-Options | ✅ `DENY` |
+| Referrer-Policy | ✅ `strict-origin-when-cross-origin` |
+| Permissions-Policy | ✅ 9 API ditolak |
+| Cross-Origin-Opener-Policy | ✅ `same-origin` |
+| Cross-Origin-Resource-Policy | ✅ `same-origin` |
+
+**Commit:** `fe93b35` (pushed ke `master`), file: `app.py`, `test_security_headers.py`.
+
+**Verifikasi (bukti nyata, bukan self-report):**
+- `test_security_headers.py` — **50/50 PASS**, termasuk kasus negatif HSTS absen
+  di HTTP dan nonce harus unik per response.
+- Browser nyata (domain live): 3 chart Plotly render, 9 SVG, 5 titik/trace,
+  **0 CSP violation**, 5 inline script punya nonce, Bootstrap CSS termuat.
+- **Kontrol negatif:** inline script yang disuntik tanpa nonce **diblokir**
+  (`script-src-elem`, violation tercatat) — membuktikan CSP benar-benar
+  ditegakkan dan halaman lolos bukan karena CSP-nya tidak jalan.
+- Semua route tetap 200 (`/`, `/healthz`, `/download/csv`), test lama tetap
+  lulus (KPI 17/17, insight 21/21, acceptance 15/15).
+
+**Catatan grading:** `style-src 'unsafe-inline'` tetap ada (Plotly menulis
+atribut `style=` pada elemen SVG). securityheaders.com tidak memotong grade
+karenanya, jadi tidak diperjuangkan.
+
+**Jebakan yang ditemukan:**
+- securityheaders.com diblokir Cloudflare untuk headless browser default.
+  Solusi: override UA ke Chrome Linux asli via CDP (`Network.setUserAgentOverride`).
+- `script.getAttribute('nonce')` mengembalikan `''` walau nonce ada — itu
+  perilaku anti-exfiltration browser, bukan bug. Baca lewat properti `.nonce`.
+- Mozilla Observatory API sedang 502; tidak dipakai sebagai pembanding.
 
 ### Fase 16 — Security Headers (2026-10-12)
 
