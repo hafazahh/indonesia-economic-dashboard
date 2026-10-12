@@ -170,3 +170,83 @@ benar-benar dihasilkan query produksi. Kalau tidak, test bisa gagal pada kode
 yang benar — dan lebih berbahaya, bisa lulus pada kode yang salah.
 
 Sumber urutan: `models.py` → `get_indicator_data()` → `ORDER BY year DESC`.
+
+---
+
+# Security Headers — temuan & pelajaran (2026-10-12)
+
+## Kenapa grade-nya F
+
+Tidak ada satu pun layer yang mengirim header keamanan: Cloudflare tidak
+menambahkannya (bukan Cloudflare Pages, jadi tidak ada `_headers`), dan app
+Flask tidak punya `after_request`. Dua layer, nol header.
+
+## Inline script itu nyata — cek HTML ter-render, bukan source
+
+Plotly `to_html()` menghasilkan **2 blok `<script>` inline per chart**
+(3 chart = 6 tag; 5 terhitung di HTML final karena satu `<script src>` CDN).
+Kalau `script-src 'self'` dipasang tanpa nonce, semua chart mati di browser
+sementara `curl` tetap melihat HTTP 200 — kegagalan yang tidak terlihat di luar
+browser.
+
+Yang menyelamatkan: **nol** atribut `on*=` dan **nol** URL `javascript:`.
+Handler attribute tidak bisa diselamatkan nonce (hanya `'unsafe-inline'` yang
+bisa), jadi kalau ada handler, A+ tidak mungkin tanpa refactor ke
+`addEventListener`. Di sini tidak ada, jadi nonce cukup.
+
+## Nonce hiding — jangan tertipu
+
+```js
+script.getAttribute('nonce')   // '' — selalu, walau nonce ada
+script.nonce                   // 'm_VdVFCa…' — ini yang benar
+```
+
+Browser menyembunyikan nilai atribut `nonce` supaya CSS selector tidak bisa
+membacanya dan mengeksfiltrasi. Hasilnya: pengecekan DOM yang naif melaporkan
+"semua script TANPA nonce" padahal nonce terpasang sempurna. Cek lewat properti
+`.nonce`, atau grep body response dari curl.
+
+## Kontrol negatif wajib
+
+Halaman yang render bagus bisa berarti (a) CSP benar dan nonce cocok, atau
+(b) CSP tidak ditegakkan sama sekali. Keduanya terlihat identik dari DOM.
+Pembeda satu-satunya: suntik inline script **tanpa** nonce dan pastikan tidak
+jalan.
+
+```js
+window.__noNonceRan = false;
+const s = document.createElement('script');
+s.textContent = 'window.__noNonceRan = true;';
+document.body.appendChild(s);
+// __noNonceRan tetap false + violation script-src-elem -> CSP memang hidup
+```
+
+Ini yang mengubah "sepertinya aman" menjadi bukti.
+
+## Scanner-nya sendiri yang harus dijalankan
+
+`curl` membuktikan header **terkirim**; tidak membuktikan **grade**.
+securityheaders.com memblokir headless browser dengan Cloudflare challenge, dan
+UA palsu di curl dapat 403. Yang berhasil: override UA ke Chrome desktop asli
+lewat CDP `Network.setUserAgentOverride`, baru navigasi.
+
+Jangan andalkan screenshot di halaman hasil scan — terlalu berat,
+`Page.captureScreenshot` timeout 60 s. Baca `document.body.innerText`.
+
+## `style-src 'unsafe-inline'` bukan target
+
+Plotly menulis atribut `style=` pada elemen SVG, jadi `style-src` butuh
+`'unsafe-inline'`. securityheaders.com **tidak** memotong grade karenanya
+(dikonfirmasi dari hasil scan, bukan asumsi). Effort di situ sia-sia.
+
+## HSTS: dua jebakan yang saling menutupi
+
+1. Tanpa `ProxyFix`, `request.is_secure` selalu False di belakang TLS-terminating
+   proxy → cabang HSTS tidak pernah jalan, dan konfigurasi **terlihat** benar.
+2. HSTS di response HTTP bisa mem-pin browser ke skema yang host-nya tidak
+   layani → situs tidak bisa diakses sampai `max-age` habis.
+
+Keduanya harus diuji sebagai assertion: HSTS **ada** di HTTPS, **absen** di HTTP.
+
+`preload` sengaja tidak dipasang — ireversibel berbulan-bulan, keputusan owner
+bukan default yang wajar.
