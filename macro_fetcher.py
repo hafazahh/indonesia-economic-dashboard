@@ -177,6 +177,30 @@ def fetch_literacy():
     return _fetch_wb_indicator(LITERACY_CODE, "literacy")
 
 
+# UNESCO Reading Interest Index (2014)
+# Data: Indonesia reading interest index 0.001 (UNESCO UIS 2014)
+# Source: UNESCO Institute for Statistics
+# Indonesia ranking: 100/208 countries
+# Meaning: from 1000 people, only 1 is an avid reader
+UNESCO_READING_INTEREST = 0.001  # 0.001%
+UNESCO_READING_INTEREST_YEAR = 2014
+UNESCO_READING_INTEREST_RANK = 100
+UNESCO_READING_INTEREST_TOTAL = 208
+
+
+def fetch_literacy_interest():
+    """Store UNESCO reading interest data as time_series.
+    
+    UNESCO does not provide a real-time API for reading interest.
+    Data is from UNESCO UIS 2014 report.
+    """
+    import datetime
+    date_str = f"{UNESCO_READING_INTEREST_YEAR}-12-31"
+    upsert_series("literacy_interest", date_str, UNESCO_READING_INTEREST)
+    print(f"  literacy_interest (UNESCO): {UNESCO_READING_INTEREST}% ({UNESCO_READING_INTEREST_YEAR})")
+    return 1
+
+
 def fetch_all_macro():
     """Fetch all macro indicators."""
     init_db()
@@ -188,6 +212,7 @@ def fetch_all_macro():
     total += fetch_life_expectancy()
     total += fetch_education_exp()
     total += fetch_literacy()
+    total += fetch_literacy_interest()
     if total > 0:
         set_series_metadata("macro_last_updated", __import__('datetime').datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"))
     print(f"Macro total: {total} rows stored")

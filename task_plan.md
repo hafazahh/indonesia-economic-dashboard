@@ -263,10 +263,12 @@ dan buat landing page micro economy terpisah dengan metrik gabungan BBM vs upah.
 
 | # | Sub-fase | Status |
 |---|----------|--------|
-| 17.1 | Makro: BI-Rate + kurs USD/IDR + Gini | **belum mulai** |
-| 17.2 | Micro: landing page + emas vs BBM + IKK | **belum mulai** |
-| 17.3 | Metrik gabungan BBM vs upah | **belum mulai** |
-| 17.4 | Saran penyajian (grafik, provinsi, asumsi) | **belum mulai** |
+| 17.1 | Makro: BI-Rate + kurs USD/IDR + Gini | complete |
+| 17.2 | Micro: landing page + emas vs BBM + IKK | complete |
+| 17.3 | Metrik gabungan BBM vs upah | complete |
+| 17.4 | Saran penyajian (grafik, provinsi, asumsi) | complete |
+| 17.5 | Backfill data historis (gold, USD/IDR, IKK, BBM) | complete — 17/35/25/9 rows per series |
+| 17.6 | Narasi Pendidikan & Literasi + Card Minat Baca UNESCO | **complete** — 17/17 + 21/21 + 50/50 + 15/15 PASS |
 
 ### Data Sources — Perlu Dicek
 

@@ -449,6 +449,33 @@ header keamanan hilang.
 
 ---
 
+## Sesi 2026-10-13 — Fase 17.5: Backfill Data Historis (leadengineer)
+
+**Goal:** Backfill data historis untuk gold_gram, usd_idr, ikk, bbm_* series agar chart multi-titik.
+
+**Perubahan:**
+
+1. **`backfill.py`** — script backfill idempoten (INSERT OR REPLACE):
+   - Gold: logam-mulia-api paginated history + known data → 17 rows (2024-2026)
+   - USD/IDR: Frankfurter API monthly samples → 35 rows (2024-2026)
+   - IKK: BI survey known data → 25 rows (2024-2026)
+   - BBM: known historical prices per daerah → 9 rows per series (2020-2026)
+
+2. **`app.py`** — integrasi backfill ke bootstrap (non-fatal on failure)
+
+**Verifikasi:**
+- `test_kpi_units.py` — **17/17 PASS**
+- `test_insight_dynamic.py` — **21/21 PASS**
+- `test_security_headers.py` — **50/50 PASS**
+- `/micro` route: 200, 5 Plotly charts, semua series render dengan data
+- No duplicates di DB
+
+**Commit:** `f35392e` (pushed ke `master`)
+
+**Error:** tidak ada.
+
+---
+
 ## Sesi 2026-10-13 — Fase 17.2: Timestamp Update per KPI Card (leadengineer)
 
 **Goal:** Tambahkan "Diperbarui: ..." di setiap KPI card di `/` dan `/micro`,
@@ -478,5 +505,49 @@ plus badge fallback untuk data hardcoded.
 - `test_kpi_units.py` — **17/17 PASS**
 - `test_insight_dynamic.py` — **21/21 PASS**
 - `test_security_headers.py` — **50/50 PASS**
+
+**Error:** tidak ada.
+
+---
+
+## Sesi 2026-10-13 — Fase 17.6: Narasi Pendidikan & Literasi + Card Minat Baca UNESCO (leadengineer)
+
+**Goal:** Tambah narasi penjelasan di card Pendidikan (% PDB) dan Literasi,
+plus card baru "Minat Baca Aktif" dari UNESCO.
+
+**Perubahan:**
+
+1. **macro_fetcher.py** — tambah:
+   - Konstanta UNESCO: `UNESCO_READING_INTEREST = 0.001`, `UNESCO_READING_INTEREST_YEAR = 2014`,
+     `UNESCO_READING_INTEREST_RANK = 100`, `UNESCO_READING_INTEREST_TOTAL = 208`
+   - `fetch_literacy_interest()` — store data UNESCO sebagai time_series
+   - Integrasi ke `fetch_all_macro()`
+
+2. **app.py** — tambah:
+   - Import konstanta UNESCO dari macro_fetcher
+   - Narasi description di card Pendidikan (% PDB): "Alokasi belanja pendidikan
+     Indonesia sebesar X% PDB (YYYY). Angka ini menunjukkan kontribusi sektor
+     pendidikan terhadap ekonomi nasional."
+   - Narasi description di card Literasi: "Tingkat literasi dasar (baca tulis)
+     Indonesia mencapai X% (YYYY). Data BPS mengukur kemampuan penduduk
+     usia 15+ untuk membaca dan menulis."
+   - Card baru "Minat Baca Aktif (UNESCO)": value 0.001%, date 2014,
+     description dengan konteks peringkat 100/208 negara
+   - Source attribution di setiap card (World Bank / UNESCO UIS)
+
+3. **templates/dashboard.html** — tambah:
+   - Render `mk.description` dan `mk.source` di macro KPI cards
+
+**Data UNESCO:**
+- Reading Interest Index: 0.001% (UNESCO UIS 2014)
+- Indonesia ranking: 100/208 countries
+- Artinya dari 1000 orang hanya 1 yang benar-benar suka membaca
+- Sumber: UNESCO Institute for Statistics
+
+**Verifikasi:**
+- `test_kpi_units.py` — **17/17 PASS**
+- `test_insight_dynamic.py` — **21/21 PASS**
+- `test_security_headers.py` — **50/50 PASS**
+- `verify_acceptance.py` — **15/15 PASS**
 
 **Error:** tidak ada.

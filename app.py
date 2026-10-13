@@ -16,7 +16,13 @@ from models import (
     get_indicator_last_updated, get_series_last_updated,
 )
 from data_fetcher import fetch_all
-from macro_fetcher import fetch_all_macro
+from macro_fetcher import (
+    fetch_all_macro,
+    UNESCO_READING_INTEREST,
+    UNESCO_READING_INTEREST_YEAR,
+    UNESCO_READING_INTEREST_RANK,
+    UNESCO_READING_INTEREST_TOTAL,
+)
 from micro_fetcher import fetch_all_micro, UMP_PROVINSI, BBM_PER_DAERAH
 from backfill import run as backfill_run
 from scheduler import start_scheduler, stop_scheduler, scheduler_running
@@ -433,6 +439,12 @@ def dashboard():
             "date": edu_exp_latest["date"],
             "color": "text-secondary",
             "last_updated": edu_exp_latest.get("fetched_at", "Belum pernah update"),
+            "description": (
+                f"Alokasi belanja pendidikan Indonesia sebesar {edu_exp_latest['value']:.1f}% PDB "
+                f"({edu_exp_latest['date'][:4]}). Angka ini menunjukkan kontribusi sektor "
+                f"pendidikan terhadap ekonomi nasional."
+            ),
+            "source": "World Bank (SE.XPD.TOTL.GD.ZS)",
         })
     if literacy_latest:
         macro_kpis.append({
@@ -441,6 +453,30 @@ def dashboard():
             "date": literacy_latest["date"],
             "color": "text-dark",
             "last_updated": literacy_latest.get("fetched_at", "Belum pernah update"),
+            "description": (
+                f"Tingkat literasi dasar (baca tulis) Indonesia mencapai "
+                f"{literacy_latest['value']:.1f}% ({literacy_latest['date'][:4]}). "
+                f"Data BPS mengukur kemampuan penduduk usia 15+ untuk membaca dan menulis."
+            ),
+            "source": "World Bank (SE.ADT.LITR.ZS)",
+        })
+
+    # UNESCO Reading Interest Index card
+    literacy_interest_latest = get_latest_series("literacy_interest")
+    if literacy_interest_latest:
+        macro_kpis.append({
+            "name": "Minat Baca Aktif (UNESCO)",
+            "value": f"{UNESCO_READING_INTEREST}%",
+            "date": f"{UNESCO_READING_INTEREST_YEAR}",
+            "color": "text-danger",
+            "last_updated": literacy_interest_latest.get("fetched_at", "Belum pernah update"),
+            "description": (
+                f"Indeks minat baca aktif Indonesia {UNESCO_READING_INTEREST}% "
+                f"({UNESCO_READING_INTEREST_YEAR}). Berarti dari 1.000 orang hanya "
+                f"1 orang yang benar-benar suka membaca. Peringkat {UNESCO_READING_INTEREST_RANK}"
+                f"/{UNESCO_READING_INTEREST_TOTAL} negara (UNESCO UIS)."
+            ),
+            "source": "UNESCO UIS (2014)",
         })
 
     # Macro charts

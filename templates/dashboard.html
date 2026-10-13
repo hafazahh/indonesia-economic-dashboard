@@ -83,6 +83,16 @@
                 <div class="kpi-label">{{ mk.name }}</div>
                 <div class="kpi-value {{ mk.color }}">{{ mk.value }}</div>
                 <small class="text-muted">{{ mk.date }}</small>
+                {% if mk.description %}
+                <div class="mt-1">
+                    <small class="text-muted">{{ mk.description }}</small>
+                </div>
+                {% endif %}
+                {% if mk.source %}
+                <div class="mt-1">
+                    <small class="text-muted">Sumber: {{ mk.source }}</small>
+                </div>
+                {% endif %}
                 <div class="mt-1">
                     <small class="text-muted">Diperbarui: {{ mk.last_updated }}</small>
                 </div>
