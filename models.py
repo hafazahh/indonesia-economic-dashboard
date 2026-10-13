@@ -144,3 +144,74 @@ def get_all_data():
             "latest": get_latest(code),
         }
     return result
+
+
+# ---------------------------------------------------------------------------
+# Time-series table (for BI-Rate, USD/IDR, IKK, gold, BBM — monthly/daily data)
+# ---------------------------------------------------------------------------
+
+def init_time_series():
+    """Create the time_series table if it doesn't exist."""
+    with db(write=True) as conn:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS time_series (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                series_key TEXT NOT NULL,
+                date TEXT NOT NULL,
+                value REAL NOT NULL,
+                fetched_at TEXT NOT NULL,
+                UNIQUE(series_key, date)
+            )
+        """)
+
+
+def upsert_series(series_key, date_str, value):
+    """Insert or update a time-series data point."""
+    with db(write=True) as conn:
+        conn.execute(
+            """INSERT OR REPLACE INTO time_series (series_key, date, value, fetched_at)
+               VALUES (?, ?, ?, ?)""",
+            (series_key, date_str, value, datetime.utcnow().isoformat()),
+        )
+
+
+def get_series(series_key, limit=100):
+    """Get time-series data ordered by date ascending."""
+    with db() as conn:
+        rows = conn.execute(
+            """SELECT date, value, fetched_at FROM time_series
+               WHERE series_key = ? AND value IS NOT NULL
+               ORDER BY date ASC LIMIT ?""",
+            (series_key, limit),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_latest_series(series_key):
+    """Get the most recent value for a series."""
+    with db() as conn:
+        row = conn.execute(
+            """SELECT date, value, fetched_at FROM time_series
+               WHERE series_key = ? AND value IS NOT NULL
+               ORDER BY date DESC LIMIT 1""",
+            (series_key,),
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def get_series_metadata(key):
+    """Get a metadata value by key."""
+    with db() as conn:
+        row = conn.execute(
+            "SELECT value FROM metadata WHERE key = ?", (key,)
+        ).fetchone()
+    return row["value"] if row else None
+
+
+def set_series_metadata(key, value):
+    """Set a metadata value."""
+    with db(write=True) as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?)",
+            (key, value),
+        )

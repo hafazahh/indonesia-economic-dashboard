@@ -10,6 +10,8 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 sys.path.insert(0, os.path.dirname(__file__))
 from data_fetcher import fetch_all
+from macro_fetcher import fetch_all_macro
+from micro_fetcher import fetch_all_micro
 
 UPDATE_INTERVAL_HOURS = 6
 
@@ -17,10 +19,12 @@ _scheduler = None
 
 
 def _job():
-    """Refresh all indicators from the World Bank API."""
+    """Refresh all indicators: World Bank, BI, and micro data."""
     try:
         print("[Scheduler] Fetching data...")
         fetch_all()
+        fetch_all_macro()
+        fetch_all_micro()
         print("[Scheduler] Fetch complete")
     except Exception as exc:  # keep the scheduler alive on any fetch failure
         print(f"[Scheduler] Error: {exc}")

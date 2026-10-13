@@ -65,6 +65,59 @@
         <strong>Insight:</strong> {{ insight }}
     </div>
 
+    <!-- Macro Section: BI-Rate, USD/IDR, Gini, Kesejahteraan -->
+    {% if macro_kpis %}
+    <h4 class="section-title">Indikator Makro Tambahan</h4>
+    <div class="row g-3 mb-4">
+        {% for mk in macro_kpis %}
+        <div class="col-md-2 col-sm-4">
+            <div class="card kpi-card h-100">
+                <div class="card-body text-center">
+                    <div class="kpi-label">{{ mk.name }}</div>
+                    <div class="kpi-value {{ mk.color }}">{{ mk.value }}</div>
+                    <small class="text-muted">{{ mk.date }}</small>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Macro Charts -->
+    <div class="row g-3 mb-4">
+        {% if bi_rate_chart %}
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="section-title">BI-Rate</h5>
+                    <div class="chart-container">{{ bi_rate_chart|safe }}</div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        {% if usd_idr_chart %}
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="section-title">Kurs USD/IDR</h5>
+                    <div class="chart-container">{{ usd_idr_chart|safe }}</div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        {% if gini_chart %}
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="section-title">Rasio Gini</h5>
+                    <div class="chart-container">{{ gini_chart|safe }}</div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    <small class="text-muted">Terakhir diperbarui: {{ macro_updated }}</small>
+    {% endif %}
+
     <!-- Grafik Utama -->
     <div class="card mb-4">
         <div class="card-body">
@@ -122,7 +175,10 @@
                 <strong>Sumber Data:</strong> World Bank API, IMF WEO, BPS &nbsp;|&nbsp;
                 <strong>Last Updated:</strong> {{ last_updated }}
             </div>
-            <a href="/download/csv" class="btn btn-outline-primary btn-sm">Download CSV</a>
+            <div>
+                <a href="/download/csv" class="btn btn-outline-primary btn-sm me-2">Download CSV</a>
+                <a href="/micro" class="btn btn-outline-success btn-sm">Micro Economy</a>
+            </div>
         </div>
     </footer>
 </div>

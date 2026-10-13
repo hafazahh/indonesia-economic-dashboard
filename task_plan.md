@@ -85,6 +85,7 @@ karenanya, jadi tidak diperjuangkan.
 (origin gunicorn). Jadi tidak ada layer yang menambahkan; harus dari app.
 
 **Audit isi HTML (bukan grep source):**
+
 | Temuan | Jumlah |
 |---|---|
 | inline `<script>` tanpa src | 5 (2 per chart Plotly) |
@@ -205,3 +206,78 @@ Butuh PRD baru sebelum dikerjakan.
 | RTK blokir `pip install plotly apscheduler` (leadengineer menyerah, fallback Chart.js + threading) | 1 (ketua_agen) | `uv pip install plotly apscheduler` — berhasil, sesuai workaround SOP |
 | Proses `app.py` zombie dari worker leadengineer masih pegang port 5000 | 1 (ketua_agen) | `pkill -9 -f app.py`, restart bersih |
 | KPI trade balance tampil `29.6 M USD` (ambigu: juta/miliar) | 1 (ketua_agen) | Ganti ke `29.6 miliar USD` |
+
+---
+
+## Fase 17 — Ekspansi Makro + Micro Economy (2026-10-13)
+
+**Goal:** Tambah indikator makro baru (BI-Rate, kurs USD/IDR, Gini, kesejahteraan)
+dan buat landing page micro economy terpisah dengan metrik gabungan BBM vs upah.
+
+### 17.1 — Makro Ekonomi (dashboard existing)
+
+**Indikator baru:**
+- **BI-Rate** — live update dari Bank Indonesia
+- **Kurs USD/IDR** — live update dari Bank Indonesia
+- **Rasio Gini** — World Bank API (`SI.POV.GINI`)
+- **Tingkat kesejahteraan** — indikator turunan (IPM atau indikator BPS)
+
+**Data sources:**
+- BI-Rate: `https://api.bi.go.id` atau scraping `bi.go.id`
+- Kurs USD/IDR: `https://api.bi.go.id` atau `https://api.exchangerate.host`
+- Gini: World Bank API `SI.POV.GINI`
+
+### 17.2 — Micro Economy (landing page baru)
+
+**Route baru:** `/micro` atau `/micro-economy`
+
+**Konten:**
+1. **Perbandingan Harga Emas vs BBM** (Pertalite, Pertamax)
+   - Harga emas: Antam / gold-api.com
+   - Harga BBM: Pertamina / Kementerian ESDM
+2. **Indeks Keyakinan Konsumen (IKK)** — Bank Indonesia
+3. **IKK vs Harga Emas & BBM** — perbandingan visual
+
+### 17.3 — Metrik Gabungan (dari gambar user)
+
+| Metrik | Rumus | Interpretasi |
+|--------|-------|--------------|
+| Liter per upah minimum | UMP / harga BBM per liter | Liter BBM yang bisa dibeli dengan 1 bulan upah minimum |
+| Jam kerja per liter | Harga BBM per liter / upah per jam | Jam kerja untuk membeli 1 liter BBM |
+| Indeks harga BBM vs indeks upah | (Indeks BBM / Indeks upah) × 100 | Apakah harga BBM naik lebih cepat dari upah |
+| Beban BBM terhadap pengeluaran | (Konsumsi BBM × harga) / Total pengeluaran | Berapa persen pengeluaran habis untuk BBM |
+
+**Data sources:**
+- UMP per provinsi: BPS / Kementerianakerja
+- Harga BBM: Pertamina / Kementerian ESDM
+- Konsumsi BBM per bulan: asumsi (misal 20 liter/bulan)
+
+### 17.4 — Saran Penyajian
+
+1. **Grafik garis dua indeks** (harga BBM vs upah) — lebih mudah dipahami awam
+2. **Tandai momen kenaikan/penurunan BBM** di grafik, tampilkan efek ke inflasi & IKK setelahnya
+3. **Pilihan per provinsi** untuk rasio liter per upah (UMP dan harga BBM berbeda antar wilayah)
+4. **Cantumkan asumsi perhitungan** (UMP provinsi mana, konsumsi BBM per bulan) agar transparan
+
+### Fase 17 — Status
+
+| # | Sub-fase | Status |
+|---|----------|--------|
+| 17.1 | Makro: BI-Rate + kurs USD/IDR + Gini | **belum mulai** |
+| 17.2 | Micro: landing page + emas vs BBM + IKK | **belum mulai** |
+| 17.3 | Metrik gabungan BBM vs upah | **belum mulai** |
+| 17.4 | Saran penyajian (grafik, provinsi, asumsi) | **belum mulai** |
+
+### Data Sources — Perlu Dicek
+
+| Data | Source | API? | Live? |
+|------|--------|------|-------|
+| BI-Rate | Bank Indonesia | `api.bi.go.id` | Ya |
+| Kurs USD/IDR | Bank Indonesia | `api.bi.go.id` | Ya |
+| Gini | World Bank | `SI.POV.GINI` | Tahunan |
+| IKK | Bank Indonesia | Perlu cek | Bulanan |
+| Harga emas | Antam / gold-api.com | Perlu cek | Ya |
+| Harga BBM | Pertamina / ESDM | Perlu cek | Ya |
+| UMP per provinsi | BPS / Kemnaker | Perlu cek | Tahunan |
+
+**Next:** Cek availability API untuk setiap data source, lalu delegasi ke leadengineer.

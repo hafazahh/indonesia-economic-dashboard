@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Micro Economy — Indonesia Economic Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; }
+        .kpi-card { border: none; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); transition: transform 0.2s; }
+        .kpi-card:hover { transform: translateY(-3px); }
+        .kpi-value { font-size: 1.8rem; font-weight: 700; }
+        .kpi-label { color: #6c757d; font-size: 0.85rem; }
+        .insight-box { border-left: 4px solid #0d6efd; background: #e7f1ff; border-radius: 8px; }
+        .section-title { font-weight: 600; margin-bottom: 1rem; }
+        .chart-container { position: relative; height: 300px; }
+        .metric-card { background: #fff; border-radius: 10px; padding: 1rem; border: 1px solid #dee2e6; }
+        .metric-value { font-size: 1.5rem; font-weight: 700; color: #0d6efd; }
+        .metric-label { font-size: 0.8rem; color: #6c757d; }
+        .province-select { max-width: 300px; }
+        .assumption-box { background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 0.75rem 1rem; }
+        footer { margin-top: 3rem; padding: 1.5rem 0; border-top: 1px solid #dee2e6; }
+    </style>
+</head>
+<body>
+<div class="container py-4">
+    <!-- Header -->
+    <header class="mb-4">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+            <div>
+                <h1>Micro Economy</h1>
+                <p class="text-muted">Perbandingan Emas vs BBM, IKK, dan Metrik Gabungan</p>
+            </div>
+            <a href="/" class="btn btn-outline-primary btn-sm">Dashboard Makro</a>
+        </div>
+    </header>
+
+    <!-- Province Selector -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" action="/micro" class="row g-2 align-items-end">
+                <div class="col-auto">
+                    <label for="province" class="form-label mb-0">Pilih Provinsi (UMP)</label>
+                </div>
+                <div class="col-auto province-select">
+                    <select name="province" id="province" class="form-select form-select-sm">
+                        <option value="">Rata-rata Nasional</option>
+                        {% for p in provinces %}
+                        <option value="{{ p }}" {{ 'selected' if p == selected_province else '' }}>{{ p }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-primary btn-sm">Tampilkan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Latest Values KPI Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-2 col-sm-4">
+            <div class="card kpi-card h-100">
+                <div class="card-body text-center">
+                    <div class="kpi-label">Emas 1gr</div>
+                    <div class="kpi-value text-warning">
+                        {% if gold_latest %}{{ "{:,.0f}".format(gold_latest.value) }}{% else %}-{% endif %}
+                    </div>
+                    <small class="text-muted">{% if gold_latest %}{{ gold_latest.date }}{% endif %}</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2 col-sm-4">
+            <div class="card kpi-card h-100">
+                <div class="card-body text-center">
+                    <div class="kpi-label">Pertalite</div>
+                    <div class="kpi-value text-danger">
+                        {% if pertalite_latest %}{{ "{:,.0f}".format(pertalite_latest.value) }}{% else %}-{% endif %}
+                    </div>
+                    <small class="text-muted">{% if pertalite_latest %}{{ pertalite_latest.date }}{% endif %}</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2 col-sm-4">
+            <div class="card kpi-card h-100">
+                <div class="card-body text-center">
+                    <div class="kpi-label">Pertamax</div>
+                    <div class="kpi-value text-danger">
+                        {% if pertamax_latest %}{{ "{:,.0f}".format(pertamax_latest.value) }}{% else %}-{% endif %}
+                    </div>
+                    <small class="text-muted">{% if pertamax_latest %}{{ pertamax_latest.date }}{% endif %}</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2 col-sm-4">
+            <div class="card kpi-card h-100">
+                <div class="card-body text-center">
+                    <div class="kpi-label">IKK</div>
+                    <div class="kpi-value text-primary">
+                        {% if ikk_latest %}{{ "{:.1f}".format(ikk_latest.value) }}{% else %}-{% endif %}
+                    </div>
+                    <small class="text-muted">{% if ikk_latest %}{{ ikk_latest.date }}{% endif %}</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2 col-sm-4">
+            <div class="card kpi-card h-100">
+                <div class="card-body text-center">
+                    <div class="kpi-label">BI-Rate</div>
+                    <div class="kpi-value text-success">
+                        {% if bi_rate_latest %}{{ "{:.2f}%".format(bi_rate_latest.value) }}{% else %}-{% endif %}
+                    </div>
+                    <small class="text-muted">{% if bi_rate_latest %}{{ bi_rate_latest.date }}{% endif %}</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2 col-sm-4">
+            <div class="card kpi-card h-100">
+                <div class="card-body text-center">
+                    <div class="kpi-label">USD/IDR</div>
+                    <div class="kpi-value text-info">
+                        {% if usd_idr_latest %}{{ "{:,.0f}".format(usd_idr_latest.value) }}{% else %}-{% endif %}
+                    </div>
+                    <small class="text-muted">{% if usd_idr_latest %}{{ usd_idr_latest.date }}{% endif %}</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gold vs BBM Chart -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="section-title">Perbandingan Emas vs BBM (Indeks)</h5>
+            <div class="chart-container">{{ emas_bbm_chart|safe }}</div>
+        </div>
+    </div>
+
+    <!-- BBM vs Wage Chart -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="section-title">Indeks Harga BBM vs Indeks Upah Minimum</h5>
+            <div class="chart-container">{{ bbm_vs_wage_chart|safe }}</div>
+            <small class="text-muted">Indeks 2014=100. Anotasi ↑/↓ menandai kenaikan/penurunan harga BBM signifikan (>10%).</small>
+        </div>
+    </div>
+
+    <!-- IKK Chart -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="section-title">Indeks Keyakinan Konsumen (IKK)</h5>
+            <div class="chart-container">{{ ikk_chart|safe }}</div>
+        </div>
+    </div>
+
+    <!-- BI-Rate Chart -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="section-title">BI-Rate</h5>
+            <div class="chart-container">{{ bi_rate_chart|safe }}</div>
+        </div>
+    </div>
+
+    <!-- USD/IDR Chart -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="section-title">Kurs USD/IDR</h5>
+            <div class="chart-container">{{ usd_idr_chart|safe }}</div>
+        </div>
+    </div>
+
+    <!-- Combined Metrics -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="section-title">Metrik Gabungan — {{ metrics.province }}</h5>
+            <div class="row g-3">
+                <div class="col-md-3 col-sm-6">
+                    <div class="metric-card">
+                        <div class="metric-value">{{ "{:,.1f}".format(metrics.liters_per_ump) }}</div>
+                        <div class="metric-label">Liter Pertalite per Upah Minimum ({{ metrics.province }})</div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-sm-6">
+                    <div class="metric-card">
+                        <div class="metric-value">{{ "{:,.1f}".format(metrics.hours_per_liter) }}</div>
+                        <div class="metric-label">Jam Kerja per Liter Pertalite</div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-sm-6">
+                    <div class="metric-card">
+                        <div class="metric-value">{{ "{:,.1f}".format(metrics.bbm_vs_wage) }}</div>
+                        <div class="metric-label">Indeks BBM vs Indeks Upah</div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-sm-6">
+                    <div class="metric-card">
+                        <div class="metric-value">{{ "{:,.1f}%".format(metrics.bbm_burden) }}</div>
+                        <div class="metric-label">Beban BBM terhadap Pengeluaran</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Assumptions -->
+            <div class="assumption-box mt-3">
+                <strong>Asumsi Perhitungan:</strong>
+                <ul class="mb-0 mt-1">
+                    <li>UMP {{ metrics.province }}: Rp {{ "{:,.0f}".format(metrics.ump_monthly) }}/bulan</li>
+                    <li>Upah per jam: Rp {{ "{:,.0f}".format(metrics.ump_hourly) }} (173 jam kerja/bulan)</li>
+                    <li>Harga Pertalite: Rp {{ "{:,.0f}".format(metrics.bbm_price) }}/liter</li>
+                    <li>Konsumsi BBM: {{ metrics.monthly_consumption }} liter/bulan</li>
+                    <li>Total pengeluaran: Rp {{ "{:,.0f}".format(metrics.monthly_expenditure) }}/bulan</li>
+                    <li>Indeks BBM & upah: base 2020 (Pertalite Rp 6.500, UMP Rp 2.800)</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                <strong>Sumber Data:</strong> BI (BI-Rate, IKK), Frankfurter (USD/IDR), World Bank (Gini), Logam Mulia (Emas), Pertamina (BBM), BPS/Kemnaker (UMP)
+                &nbsp;|&nbsp;
+                <strong>Makro Updated:</strong> {{ macro_updated }}
+                &nbsp;|&nbsp;
+                <strong>Micro Updated:</strong> {{ micro_updated }}
+            </div>
+        </div>
+    </footer>
+</div>
+</body>
+</html>

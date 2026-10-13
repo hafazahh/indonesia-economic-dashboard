@@ -10,8 +10,13 @@ from flask import Flask, Response, g, render_template, request
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 sys.path.insert(0, os.path.dirname(__file__))
-from models import init_db, get_all_data, get_last_updated, count_rows
+from models import (
+    init_db, get_all_data, get_last_updated, count_rows,
+    get_series, get_latest_series, get_series_metadata,
+)
 from data_fetcher import fetch_all
+from macro_fetcher import fetch_all_macro
+from micro_fetcher import fetch_all_micro, UMP_PROVINSI
 from scheduler import start_scheduler, stop_scheduler, scheduler_running
 
 app = Flask(__name__)
@@ -373,6 +378,93 @@ def dashboard():
     pdb_chart = apply_nonce(build_single_chart(years, pdb_values, "PDB Growth (%)", "#0d6efd"), nonce)
     inflasi_chart = apply_nonce(build_single_chart(years, inflasi_values, "Inflasi YoY (%)", "#dc3545"), nonce)
 
+    # Macro indicators: BI-Rate, USD/IDR, Gini, kesejahteraan
+    bi_rate_latest = get_latest_series("bi_rate")
+    usd_idr_latest = get_latest_series("usd_idr")
+    gini_latest = get_latest_series("gini")
+    life_exp_latest = get_latest_series("life_exp")
+    edu_exp_latest = get_latest_series("edu_exp")
+    literacy_latest = get_latest_series("literacy")
+
+    # Build macro KPI cards
+    macro_kpis = []
+    if bi_rate_latest:
+        macro_kpis.append({
+            "name": "BI-Rate",
+            "value": f"{bi_rate_latest['value']:.2f}%",
+            "date": bi_rate_latest["date"],
+            "color": "text-success",
+        })
+    if usd_idr_latest:
+        macro_kpis.append({
+            "name": "Kurs USD/IDR",
+            "value": f"{usd_idr_latest['value']:,.0f}",
+            "date": usd_idr_latest["date"],
+            "color": "text-info",
+        })
+    if gini_latest:
+        macro_kpis.append({
+            "name": "Rasio Gini",
+            "value": f"{gini_latest['value']:.1f}",
+            "date": gini_latest["date"],
+            "color": "text-warning",
+        })
+    if life_exp_latest:
+        macro_kpis.append({
+            "name": "Usia Harapan Hidup",
+            "value": f"{life_exp_latest['value']:.1f} thn",
+            "date": life_exp_latest["date"],
+            "color": "text-primary",
+        })
+    if edu_exp_latest:
+        macro_kpis.append({
+            "name": "Pendidikan (% PDB)",
+            "value": f"{edu_exp_latest['value']:.1f}%",
+            "date": edu_exp_latest["date"],
+            "color": "text-secondary",
+        })
+    if literacy_latest:
+        macro_kpis.append({
+            "name": "Literasi",
+            "value": f"{literacy_latest['value']:.1f}%",
+            "date": literacy_latest["date"],
+            "color": "text-dark",
+        })
+
+    # Macro charts
+    bi_rate_data = get_series("bi_rate", limit=12)
+    usd_idr_data = get_series("usd_idr", limit=30)
+    gini_data = get_series("gini", limit=10)
+
+    if bi_rate_data:
+        bi_dates = [r["date"] for r in bi_rate_data]
+        bi_values = [r["value"] for r in bi_rate_data]
+        bi_rate_chart = apply_nonce(
+            build_single_chart(bi_dates, bi_values, "BI-Rate (%)", "#6f42c1"), nonce
+        )
+    else:
+        bi_rate_chart = ""
+
+    if usd_idr_data:
+        usd_dates = [r["date"] for r in usd_idr_data]
+        usd_values = [r["value"] for r in usd_idr_data]
+        usd_idr_chart = apply_nonce(
+            build_single_chart(usd_dates, usd_values, "USD/IDR", "#20c997"), nonce
+        )
+    else:
+        usd_idr_chart = ""
+
+    if gini_data:
+        gini_dates = [r["date"] for r in gini_data]
+        gini_values = [r["value"] for r in gini_data]
+        gini_chart = apply_nonce(
+            build_single_chart(gini_dates, gini_values, "Rasio Gini", "#fd7e14"), nonce
+        )
+    else:
+        gini_chart = ""
+
+    macro_updated = get_series_metadata("macro_last_updated") or "Belum pernah update"
+
     return render_template(
         "dashboard.html",
         kpis=kpis,
@@ -383,6 +475,11 @@ def dashboard():
         pdb_chart=pdb_chart,
         inflasi_chart=inflasi_chart,
         data_unavailable=data_unavailable,
+        macro_kpis=macro_kpis,
+        bi_rate_chart=bi_rate_chart,
+        usd_idr_chart=usd_idr_chart,
+        gini_chart=gini_chart,
+        macro_updated=macro_updated,
     )
 
 
@@ -438,6 +535,252 @@ def health():
     }
 
 
+# ---------------------------------------------------------------------------
+# Micro economy helpers
+# ---------------------------------------------------------------------------
+
+def _build_micro_chart(dates, values_list, labels, colors, title, y_title):
+    """Build a multi-line chart for micro economy data."""
+    import plotly.graph_objects as go
+    fig = go.Figure()
+    for dates, values, label, color in zip(dates, values_list, labels, colors):
+        fig.add_trace(go.Scatter(
+            x=dates, y=values, mode="lines+markers", name=label,
+            line=dict(color=color, width=3), marker=dict(size=6),
+        ))
+    fig.update_layout(**_base_layout())
+    fig.update_xaxes(title_text="Tanggal", showgrid=False)
+    fig.update_yaxes(title_text=y_title, gridcolor="#e9ecef", zeroline=True)
+    return fig.to_html(full_html=False, include_plotlyjs="cdn", config={"displayModeBar": False})
+
+
+def _compute_micro_metrics(province=None):
+    """Compute combined micro metrics for a province (or national average)."""
+    # Get latest BBM price (Pertalite)
+    pertalite = get_latest_series("bbm_pertalite")
+    bbm_price = pertalite["value"] if pertalite else 13000
+
+    # Get UMP for province
+    if province and province in UMP_PROVINSI:
+        ump = UMP_PROVINSI[province]
+    else:
+        # National average
+        ump = int(sum(UMP_PROVINSI.values()) / len(UMP_PROVINSI))
+
+    # Compute metrics
+    ump_monthly = ump * 1000  # Convert to Rupiah
+    ump_hourly = ump_monthly / 173  # ~173 working hours/month
+    liters_per_ump = ump_monthly / bbm_price
+    hours_per_liter = bbm_price / ump_hourly
+
+    # BBM index vs wage index (simplified: assume 2020 baseline)
+    bbm_index = 100.0  # baseline
+    wage_index = 100.0  # baseline
+    # Adjust based on current vs assumed 2020 values
+    bbm_2020 = 6500  # Pertalite 2020
+    ump_2020 = 2800  # avg 2020
+    bbm_index = (bbm_price / bbm_2020) * 100
+    wage_index = (ump / ump_2020) * 100
+    bbm_vs_wage = (bbm_index / wage_index) * 100
+
+    # BBM burden (assume 20 liters/month consumption, 5M monthly expenditure)
+    monthly_consumption = 20
+    monthly_expenditure = 5000000
+    bbm_burden = (monthly_consumption * bbm_price) / monthly_expenditure * 100
+
+    return {
+        "province": province or "Rata-rata Nasional",
+        "ump_monthly": ump_monthly,
+        "ump_hourly": ump_hourly,
+        "bbm_price": bbm_price,
+        "liters_per_ump": liters_per_ump,
+        "hours_per_liter": hours_per_liter,
+        "bbm_index": bbm_index,
+        "wage_index": wage_index,
+        "bbm_vs_wage": bbm_vs_wage,
+        "bbm_burden": bbm_burden,
+        "monthly_consumption": monthly_consumption,
+        "monthly_expenditure": monthly_expenditure,
+    }
+
+
+@app.route("/micro")
+@app.route("/micro-economy")
+def micro_economy():
+    """Micro economy landing page: emas vs BBM, IKK, metrik gabungan."""
+    import plotly.graph_objects as go
+
+    # Get time series data
+    gold_data = get_series("gold_gram", limit=30)
+    pertalite_data = get_series("bbm_pertalite", limit=30)
+    pertamax_data = get_series("bbm_pertamax", limit=30)
+    ikk_data = get_series("ikk", limit=12)
+    bi_rate_data = get_series("bi_rate", limit=12)
+    usd_idr_data = get_series("usd_idr", limit=30)
+
+    # Build charts
+    nonce = g.csp_nonce
+
+    # Gold vs BBM chart
+    if gold_data and pertalite_data:
+        gold_dates = [r["date"] for r in gold_data]
+        gold_values = [r["value"] for r in gold_data]
+        pertalite_dates = [r["date"] for r in pertalite_data]
+        pertalite_values = [r["value"] for r in pertalite_data]
+        # Normalize to index (first value = 100)
+        gold_base = gold_values[0] if gold_values else 1
+        pertalite_base = pertalite_values[0] if pertalite_values else 1
+        gold_indexed = [(v / gold_base) * 100 for v in gold_values]
+        pertalite_indexed = [(v / pertalite_base) * 100 for v in pertalite_values]
+        emas_bbm_chart = _build_micro_chart(
+            [gold_dates, pertalite_dates],
+            [gold_indexed, pertalite_indexed],
+            ["Emas (indeks)", "Pertalite (indeks)"],
+            ["#FFD700", "#dc3545"],
+            "Perbandingan Emas vs BBM (Indeks)",
+            "Indeks (base=100)"
+        )
+    else:
+        emas_bbm_chart = "<p class='text-muted'>Data tidak tersedia</p>"
+
+    # IKK chart
+    if ikk_data:
+        ikk_dates = [r["date"] for r in ikk_data]
+        ikk_values = [r["value"] for r in ikk_data]
+        ikk_chart = _build_micro_chart(
+            [ikk_dates], [ikk_values], ["IKK"], ["#0d6efd"],
+            "Indeks Keyakinan Konsumen (IKK)", "IKK"
+        )
+    else:
+        ikk_chart = "<p class='text-muted'>Data tidak tersedia</p>"
+
+    # BI-Rate chart
+    if bi_rate_data:
+        bi_dates = [r["date"] for r in bi_rate_data]
+        bi_values = [r["value"] for r in bi_rate_data]
+        bi_rate_chart = _build_micro_chart(
+            [bi_dates], [bi_values], ["BI-Rate"], ["#6f42c1"],
+            "BI-Rate", "%"
+        )
+    else:
+        bi_rate_chart = "<p class='text-muted'>Data tidak tersedia</p>"
+
+    # USD/IDR chart
+    if usd_idr_data:
+        usd_dates = [r["date"] for r in usd_idr_data]
+        usd_values = [r["value"] for r in usd_idr_data]
+        usd_idr_chart = _build_micro_chart(
+            [usd_dates], [usd_values], ["USD/IDR"], ["#20c997"],
+            "Kurs USD/IDR", "IDR"
+        )
+    else:
+        usd_idr_chart = "<p class='text-muted'>Data tidak tersedia</p>"
+
+    # Apply nonce to all charts
+    emas_bbm_chart = apply_nonce(emas_bbm_chart, nonce)
+    ikk_chart = apply_nonce(ikk_chart, nonce)
+    bi_rate_chart = apply_nonce(bi_rate_chart, nonce)
+    usd_idr_chart = apply_nonce(usd_idr_chart, nonce)
+
+    # Compute metrics for selected province (from query param)
+    selected_province = request.args.get("province", "").strip()
+    metrics = _compute_micro_metrics(selected_province or None)
+
+    # Get latest values for display
+    gold_latest = get_latest_series("gold_gram")
+    pertalite_latest = get_latest_series("bbm_pertalite")
+    pertamax_latest = get_latest_series("bbm_pertamax")
+    ikk_latest = get_latest_series("ikk")
+    bi_rate_latest = get_latest_series("bi_rate")
+    usd_idr_latest = get_latest_series("usd_idr")
+
+    # BBM vs wage chart with historical BBM price data + wage index
+    # Historical BBM Pertalite prices (Rupiah/liter) — government regulated changes
+    bbm_history = [
+        ("2014-01-01", 8500), ("2014-11-01", 10500), ("2015-01-01", 7500),
+        ("2015-05-01", 8500), ("2016-01-01", 6500), ("2016-07-01", 7500),
+        ("2017-01-01", 7000), ("2018-01-01", 7500), ("2019-01-01", 7500),
+        ("2020-01-01", 7500), ("2021-01-01", 8000), ("2022-04-01", 9500),
+        ("2022-09-01", 12000), ("2023-01-01", 10500), ("2024-01-01", 11000),
+        ("2025-01-01", 13000), ("2026-01-01", 13000),
+    ]
+    # UMP historical (avg, Rupiah thousands/month) — national average
+    ump_history = [
+        ("2014-01-01", 2200), ("2015-01-01", 2500), ("2016-01-01", 2800),
+        ("2017-01-01", 3000), ("2018-01-01", 3200), ("2019-01-01", 3400),
+        ("2020-01-01", 3400), ("2021-01-01", 3400), ("2022-01-01", 3500),
+        ("2023-01-01", 3600), ("2024-01-01", 3700), ("2025-01-01", 3750),
+        ("2026-01-01", 3800),
+    ]
+    bbm_dates = [d for d, _ in bbm_history]
+    bbm_prices = [v for _, v in bbm_history]
+    ump_dates = [d for d, _ in ump_history]
+    ump_prices = [v for _, v in ump_history]
+
+    # Normalize to index (2014 = 100)
+    bbm_base = bbm_prices[0] if bbm_prices else 1
+    ump_base = ump_prices[0] if ump_prices else 1
+    bbm_idx = [(v / bbm_base) * 100 for v in bbm_prices]
+    ump_idx = [(v / ump_base) * 100 for v in ump_prices]
+
+    import plotly.graph_objects as go
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=bbm_dates, y=bbm_idx, mode="lines+markers", name="Indeks Harga BBM",
+        line=dict(color="#dc3545", width=3), marker=dict(size=8),
+    ))
+    fig.add_trace(go.Scatter(
+        x=ump_dates, y=ump_idx, mode="lines+markers", name="Indeks Upah Minimum",
+        line=dict(color="#0d6efd", width=3), marker=dict(size=8),
+    ))
+    # Mark BBM price changes (significant jumps > 10%)
+    for i in range(1, len(bbm_history)):
+        prev_price = bbm_history[i-1][1]
+        curr_price = bbm_history[i][1]
+        if prev_price > 0 and abs(curr_price - prev_price) / prev_price > 0.10:
+            direction = "↑" if curr_price > prev_price else "↓"
+            fig.add_annotation(
+                x=bbm_history[i][0], y=bbm_idx[i],
+                text=f"{direction} BBM",
+                showarrow=True, arrowhead=2, ax=0, ay=-30,
+                font=dict(size=10, color="#dc3545"),
+            )
+    fig.update_layout(**_base_layout())
+    fig.update_xaxes(title_text="Tahun", showgrid=False)
+    fig.update_yaxes(title_text="Indeks (2014=100)", gridcolor="#e9ecef", zeroline=True)
+    bbm_vs_wage_chart = fig.to_html(full_html=False, include_plotlyjs="cdn", config={"displayModeBar": False})
+    bbm_vs_wage_chart = apply_nonce(bbm_vs_wage_chart, nonce)
+
+    # Province selector
+    provinces = sorted(UMP_PROVINSI.keys())
+    if selected_province not in provinces:
+        selected_province = ""
+
+    # Last updated
+    macro_updated = get_series_metadata("macro_last_updated") or "Belum pernah update"
+    micro_updated = get_series_metadata("micro_last_updated") or "Belum pernah update"
+
+    return render_template(
+        "micro.html",
+        emas_bbm_chart=emas_bbm_chart,
+        ikk_chart=ikk_chart,
+        bi_rate_chart=bi_rate_chart,
+        usd_idr_chart=usd_idr_chart,
+        metrics=metrics,
+        gold_latest=gold_latest,
+        pertalite_latest=pertalite_latest,
+        pertamax_latest=pertamax_latest,
+        ikk_latest=ikk_latest,
+        bi_rate_latest=bi_rate_latest,
+        usd_idr_latest=usd_idr_latest,
+        provinces=provinces,
+        selected_province=metrics["province"],
+        macro_updated=macro_updated,
+        micro_updated=micro_updated,
+        bbm_vs_wage_chart=bbm_vs_wage_chart,
+    )
+
+
 def bootstrap():
     """Initialise DB, load data if empty, and start the scheduler.
 
@@ -456,6 +799,8 @@ def bootstrap():
         has_data = False
     if not has_data:
         fetch_all()
+        fetch_all_macro()
+        fetch_all_micro()
     start_scheduler()
 
 
