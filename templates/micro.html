@@ -108,6 +108,42 @@
         <div class="col-md-2 col-sm-4">
             <div class="card kpi-card h-100">
                 <div class="card-body text-center">
+                    <div class="kpi-label">Pertamax Turbo <span class="badge bg-warning text-dark ms-1" title="Data Oktober 2026">Okt 2026</span></div>
+                    <div class="kpi-value text-danger">
+                        {% if pertamax_turbo_latest %}{{ "{:,.0f}".format(pertamax_turbo_latest.value) }}{% else %}-{% endif %}
+                    </div>
+                    <small class="text-muted">{% if pertamax_turbo_latest %}{{ pertamax_turbo_latest.date }}{% endif %}</small>
+                    {% if pertamax_turbo_latest %}<br><small class="text-muted">Diperbarui: {{ pertamax_turbo_latest.last_updated }}</small>{% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2 col-sm-4">
+            <div class="card kpi-card h-100">
+                <div class="card-body text-center">
+                    <div class="kpi-label">Dexlite <span class="badge bg-warning text-dark ms-1" title="Data Oktober 2026">Okt 2026</span></div>
+                    <div class="kpi-value text-danger">
+                        {% if dexlite_latest %}{{ "{:,.0f}".format(dexlite_latest.value) }}{% else %}-{% endif %}
+                    </div>
+                    <small class="text-muted">{% if dexlite_latest %}{{ dexlite_latest.date }}{% endif %}</small>
+                    {% if dexlite_latest %}<br><small class="text-muted">Diperbarui: {{ dexlite_latest.last_updated }}</small>{% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2 col-sm-4">
+            <div class="card kpi-card h-100">
+                <div class="card-body text-center">
+                    <div class="kpi-label">Solar <span class="badge bg-warning text-dark ms-1" title="Data Oktober 2026">Okt 2026</span></div>
+                    <div class="kpi-value text-danger">
+                        {% if solar_latest %}{{ "{:,.0f}".format(solar_latest.value) }}{% else %}-{% endif %}
+                    </div>
+                    <small class="text-muted">{% if solar_latest %}{{ solar_latest.date }}{% endif %}</small>
+                    {% if solar_latest %}<br><small class="text-muted">Diperbarui: {{ solar_latest.last_updated }}</small>{% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2 col-sm-4">
+            <div class="card kpi-card h-100">
+                <div class="card-body text-center">
                     <div class="kpi-label">IKK</div>
                     <div class="kpi-value text-primary">
                         {% if ikk_latest %}{{ "{:.1f}".format(ikk_latest.value) }}{% else %}-{% endif %}

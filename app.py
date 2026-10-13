@@ -615,6 +615,56 @@ def _compute_micro_metrics(province=None, daerah="jawa"):
     }
 
 
+# Aliases: common province/region names → BBM_PER_DAERAH keys
+DAERAH_ALIASES = {
+    "Aceh": "aceh_sumut",
+    "Sumatera Utara": "aceh_sumut",
+    "Sumut": "aceh_sumut",
+    "Jambi": "aceh_sumut",
+    "Bengkulu": "aceh_sumut",
+    "Sumatera Selatan": "aceh_sumut",
+    "Sumsel": "aceh_sumut",
+    "Lampung": "aceh_sumut",
+    "Bangka Belitung": "aceh_sumut",
+    "Babel": "aceh_sumut",
+    "Sumatera Barat": "sumbar_riau",
+    "Sumbar": "sumbar_riau",
+    "Riau": "sumbar_riau",
+    "Kepulauan Riau": "sumbar_riau",
+    "Kepri": "sumbar_riau",
+    "Kalimantan Utara": "sumbar_riau",
+    "Kalut": "sumbar_riau",
+    "Jawa": "jawa",
+    "Jawa Barat": "jawa",
+    "Jabar": "jawa",
+    "Jawa Tengah": "jawa",
+    "Jateng": "jawa",
+    "Jawa Timur": "jawa",
+    "Jatim": "jawa",
+    "DKI Jakarta": "jawa",
+    "Jakarta": "jawa",
+    "Banten": "jawa",
+    "DI Yogyakarta": "jawa",
+    "Yogyakarta": "jawa",
+    "Bali": "jawa",
+    "Nusa Tenggara Barat": "jawa",
+    "NTB": "jawa",
+    "Nusa Tenggara Timur": "indonesia_timur",
+    "NTT": "indonesia_timur",
+    "Maluku": "indonesia_timur",
+    "Maluku Utara": "indonesia_timur",
+    "Papua": "indonesia_timur",
+    "Papua Barat": "indonesia_timur",
+    "Papua Tengah": "indonesia_timur",
+    "Papua Pegunungan": "indonesia_timur",
+    "Papua Selatan": "indonesia_timur",
+    "Papua Barat Daya": "indonesia_timur",
+    "Sulawesi": "indonesia_timur",
+    "Kalimantan": "indonesia_timur",
+    "Indonesia Timur": "indonesia_timur",
+}
+
+
 @app.route("/micro")
 @app.route("/micro-economy")
 def micro_economy():
@@ -623,6 +673,8 @@ def micro_economy():
 
     # Get selected daerah first (used for BBM series keys below)
     selected_daerah = request.args.get("daerah", "jawa").strip()
+    # Resolve aliases (e.g., "Aceh" → "aceh_sumut")
+    selected_daerah = DAERAH_ALIASES.get(selected_daerah, selected_daerah)
     if selected_daerah not in BBM_PER_DAERAH:
         selected_daerah = "jawa"
 
@@ -706,6 +758,9 @@ def micro_economy():
     gold_latest = get_latest_series("gold_gram")
     pertalite_latest = get_latest_series(f"bbm_pertalite__{selected_daerah}")
     pertamax_latest = get_latest_series(f"bbm_pertamax__{selected_daerah}")
+    pertamax_turbo_latest = get_latest_series(f"bbm_pertamax_turbo__{selected_daerah}")
+    dexlite_latest = get_latest_series(f"bbm_dexlite__{selected_daerah}")
+    solar_latest = get_latest_series(f"bbm_solar__{selected_daerah}")
     ikk_latest = get_latest_series("ikk")
     bi_rate_latest = get_latest_series("bi_rate")
     usd_idr_latest = get_latest_series("usd_idr")
@@ -788,6 +843,9 @@ def micro_economy():
     gold_latest = _with_ts(gold_latest)
     pertalite_latest = _with_ts(pertalite_latest)
     pertamax_latest = _with_ts(pertamax_latest)
+    pertamax_turbo_latest = _with_ts(pertamax_turbo_latest)
+    dexlite_latest = _with_ts(dexlite_latest)
+    solar_latest = _with_ts(solar_latest)
     ikk_latest = _with_ts(ikk_latest)
     bi_rate_latest = _with_ts(bi_rate_latest)
     usd_idr_latest = _with_ts(usd_idr_latest)
@@ -802,6 +860,9 @@ def micro_economy():
         gold_latest=gold_latest,
         pertalite_latest=pertalite_latest,
         pertamax_latest=pertamax_latest,
+        pertamax_turbo_latest=pertamax_turbo_latest,
+        dexlite_latest=dexlite_latest,
+        solar_latest=solar_latest,
         ikk_latest=ikk_latest,
         bi_rate_latest=bi_rate_latest,
         usd_idr_latest=usd_idr_latest,
