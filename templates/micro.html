@@ -273,9 +273,39 @@
     <div class="card mb-4">
         <div class="card-body">
             <h5 class="section-title">💡 Insight (dynamic, per daerah)</h5>
-            <div class="insight-box p-3">
-                <p class="mb-0" style="font-size: 0.95rem; line-height: 1.6;">{{ insight }}</p>
+
+            <!-- Main Findings -->
+            <div class="insight-box p-3 mb-3">
+                <h6 class="fw-bold mb-2">Temuan utama</h6>
+                <ul class="mb-0" style="font-size: 0.95rem; line-height: 1.6;">
+                    {% for finding in insight.main_findings %}
+                    <li>{{ finding }}</li>
+                    {% endfor %}
+                </ul>
             </div>
+
+            <!-- Additional Analysis -->
+            <div class="insight-box p-3 mb-3">
+                <h6 class="fw-bold mb-2">Analisis tambahan</h6>
+                <ul class="mb-0" style="font-size: 0.95rem; line-height: 1.6;">
+                    {% for analysis in insight.additional_analysis %}
+                    <li>{{ analysis }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+
+            <!-- Deficit Warning -->
+            {% if insight.deficit_info.is_deficit %}
+            <div class="alert alert-warning mb-0" style="font-size: 0.95rem; line-height: 1.6;">
+                <strong>⚠️ Defisit UMP vs Pengeluaran</strong><br>
+                UMP {{ insight.deficit_info.province }} (Rp {{ "{:,.0f}".format(insight.deficit_info.ump) }}) berada DI BAWAH rata-rata pengeluaran rumah tangga (Rp {{ "{:,.0f}".format(insight.deficit_info.expenditure) }}), defisit Rp {{ "{:,.0f}".format(insight.deficit_info.amount) }}/bulan ({{ "%.1f"|format(insight.deficit_info.percentage) }}%). Upah minimum belum mencukupi kebutuhan hidup layak.
+            </div>
+            {% else %}
+            <div class="alert alert-success mb-0" style="font-size: 0.95rem; line-height: 1.6;">
+                <strong>✅ Surplus UMP vs Pengeluaran</strong><br>
+                UMP {{ insight.deficit_info.province }} (Rp {{ "{:,.0f}".format(insight.deficit_info.ump) }}) melebihi rata-rata pengeluaran (Rp {{ "{:,.0f}".format(insight.deficit_info.expenditure) }}), surplus Rp {{ "{:,.0f}".format(insight.deficit_info.amount) }}/bulan.
+            </div>
+            {% endif %}
         </div>
     </div>
 

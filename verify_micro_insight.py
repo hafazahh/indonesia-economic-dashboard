@@ -67,8 +67,14 @@ metrics_aceh = {
     "monthly_expenditure": 4200000,
 }
 
-insight_jkt = generate_micro_insight(metrics_jkt, ikk_latest={"value": 105.0})
-insight_aceh = generate_micro_insight(metrics_aceh, ikk_latest={"value": 95.0})
+result_jkt = generate_micro_insight(metrics_jkt, ikk_latest={"value": 105.0})
+result_aceh = generate_micro_insight(metrics_aceh, ikk_latest={"value": 95.0})
+
+# Unpack dict returns
+insight_jkt = result_jkt["all_text"]
+insight_aceh = result_aceh["all_text"]
+deficit_jkt = result_jkt["deficit_info"]
+deficit_aceh = result_aceh["deficit_info"]
 
 print("=== DKI Jakarta ===")
 print(insight_jkt)
@@ -102,6 +108,50 @@ check("95" in insight_aceh, "IKK < 100 shows value")
 # Test IKK branch differences
 check("optimis" in insight_jkt.lower(), "IKK > 100 uses 'optimis'")
 check("melemah" in insight_aceh.lower(), "IKK < 100 uses 'melemah'")
+
+# --- Deficit analysis checks ---
+print()
+print("=== Deficit Analysis ===")
+check(deficit_jkt["is_deficit"] == True, "Jakarta is deficit (UMP < expenditure)")
+check(deficit_jkt["amount"] == 1357000, f"Jakarta deficit amount = 1,357,000 (got {deficit_jkt['amount']})")
+check(abs(deficit_jkt["percentage"] - 27.1) < 0.2, f"Jakarta deficit pct ~27.1% (got {deficit_jkt['percentage']:.1f})")
+check("defisit" in insight_jkt.lower(), "Jakarta text mentions 'defisit'")
+check("DI BAWAH" in insight_jkt, "Jakarta text says 'DI BAWAH'")
+check("belum mencukupi" in insight_jkt.lower(), "Jakarta text says 'belum mencukupi'")
+
+check(deficit_aceh["is_deficit"] == True, "Aceh is also deficit")
+check(deficit_aceh["amount"] == 1900000, f"Aceh deficit amount = 1,900,000 (got {deficit_aceh['amount']})")
+
+# --- Structured output checks ---
+print()
+print("=== Structured Output ===")
+check(isinstance(result_jkt["main_findings"], list), "main_findings is list")
+check(len(result_jkt["main_findings"]) == 4, f"main_findings has 4 items (got {len(result_jkt['main_findings'])})")
+check(isinstance(result_jkt["additional_analysis"], list), "additional_analysis is list")
+check(len(result_jkt["additional_analysis"]) >= 3, f"additional_analysis has >=3 items (got {len(result_jkt['additional_analysis'])})")
+check("Rasio pengeluaran" in insight_jkt, "Rasio mentioned in text")
+check("137.2" in insight_jkt, "Jakarta rasio ~137.2% (5M/3.643M)")
+
+# --- Surplus case (UMP > expenditure) ---
+print()
+print("=== Surplus Case ===")
+metrics_surplus = {
+    "province": "Test Province",
+    "ump_monthly": 6000000,
+    "bbm_price": 10000,
+    "liters_per_ump": 600.0,
+    "hours_per_liter": 1.5,
+    "bbm_index_2014": 120.0,
+    "wage_index_2014": 130.0,
+    "bbm_burden": 3.0,
+    "monthly_consumption": 20,
+    "monthly_expenditure": 5000000,
+}
+result_surplus = generate_micro_insight(metrics_surplus)
+check(result_surplus["deficit_info"]["is_deficit"] == False, "Surplus case: is_deficit=False")
+check(result_surplus["deficit_info"]["amount"] == 1000000, "Surplus amount = 1,000,000")
+check("surplus" in result_surplus["all_text"].lower(), "Surplus text mentions 'surplus'")
+check("melebihi" in result_surplus["all_text"], "Surplus text says 'melebihi'")
 
 print()
 if errors:

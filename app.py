@@ -310,13 +310,16 @@ PROJECTION = [
 
 
 def generate_micro_insight(metrics, ikk_latest=None, bi_rate_latest=None, inflation_yoy_latest=None):
-    """Generate dynamic insight text for micro economy page.
+    """Generate dynamic insight for micro economy page.
 
-    Recomputed on every request from metrics dict and latest macro data.
-    All sentences are dynamic — no hardcoded strings.
+    Returns a dict with structured sections for template rendering:
+      - main_findings: list of 4 bullet strings (core metrics)
+      - additional_analysis: list of strings (deficit, projections, ratios)
+      - deficit_info: dict with {is_deficit, amount, percentage, ump, expenditure, province}
+      - all_text: flat string of all sections (backward compat)
+
+    All content is dynamic — no hardcoded province names or values.
     """
-    parts = []
-
     province = metrics["province"]
     ump_monthly = metrics["ump_monthly"]
     bbm_price = metrics["bbm_price"]
@@ -328,15 +331,18 @@ def generate_micro_insight(metrics, ikk_latest=None, bi_rate_latest=None, inflat
     monthly_consumption = metrics["monthly_consumption"]
     monthly_expenditure = metrics["monthly_expenditure"]
 
+    # --- Main findings (4 core metrics) ---
+    main_findings = []
+
     # 1. Liter per upah minimum
-    parts.append(
+    main_findings.append(
         f"Dengan 1 bulan upah minimum di {province} (Rp {ump_monthly:,.0f}), "
         f"bisa membeli {liters_per_ump:,.0f} liter Pertalite. "
         f"Ini menunjukkan daya beli upah terhadap kebutuhan bakar kendaraan."
     )
 
     # 2. Jam kerja per liter
-    parts.append(
+    main_findings.append(
         f"Pekerja di {province} harus bekerja {hours_per_liter:,.1f} jam untuk membeli 1 liter Pertalite. "
         f"Semakin kecil angka ini, semakin ringan beban hidup."
     )
@@ -350,51 +356,95 @@ def generate_micro_insight(metrics, ikk_latest=None, bi_rate_latest=None, inflat
         comparison = "naik lebih lambat dari upah"
     else:
         comparison = "naik seimbang dengan upah"
-    parts.append(
+    main_findings.append(
         f"Sejak 2014, harga BBM naik {bbm_change:.0f}% sedangkan upah naik {wage_change:.0f}%. "
         f"BBM {comparison}."
     )
 
     # 4. Beban BBM terhadap pengeluaran
     bbm_spending = monthly_consumption * bbm_price
-    parts.append(
+    main_findings.append(
         f"Keluaran Rp {bbm_spending:,.0f}/bulan habis untuk BBM, sekitar {bbm_burden:.1f}% "
         f"dari total pengeluaran (Rp {monthly_expenditure:,.0f}/bulan)."
     )
 
-    # 5. Proyeksi makro — IMF WEO
+    # --- Additional analysis (deficit, ratios, projections) ---
+    additional_analysis = []
+
+    # 5. Defisit/surplus UMP vs pengeluaran
+    deficit_amount = ump_monthly - monthly_expenditure
+    deficit_pct = abs(deficit_amount) / monthly_expenditure * 100
+    if deficit_amount < 0:
+        deficit_text = (
+            f"Catatan: Ump {province} (Rp {ump_monthly:,.0f}) berada DI BAWAH rata-rata "
+            f"pengeluaran rumah tangga (Rp {monthly_expenditure:,.0f}), defisit "
+            f"Rp {abs(deficit_amount):,.0f}/bulan ({deficit_pct:.1f}%). "
+            f"Upah minimum belum mencukupi kebutuhan hidup layak."
+        )
+        is_deficit = True
+    else:
+        deficit_text = (
+            f"Ump {province} (Rp {ump_monthly:,.0f}) melebihi rata-rata pengeluaran "
+            f"(Rp {monthly_expenditure:,.0f}), surplus Rp {deficit_amount:,.0f}/bulan."
+        )
+        is_deficit = False
+    additional_analysis.append(deficit_text)
+
+    # 6. Rasio pengeluaran terhadap pendapatan
+    rasio = monthly_expenditure / ump_monthly * 100 if ump_monthly > 0 else 0
+    additional_analysis.append(
+        f"Rasio pengeluaran terhadap pendapatan: {rasio:.1f}%"
+    )
+
+    # 7. Proyeksi makro — IMF WEO
     proj_2027 = next((p for p in PROJECTION if p["year"] == 2027), None)
     if proj_2027:
-        parts.append(
+        additional_analysis.append(
             f"Jika inflasi tetap dalam target BI dan BI-Rate stabil, proyeksi PDB 2027 "
             f"mencapai {proj_2027['pdb']:.1f}% (IMF WEO)."
         )
 
-    # BBM vs upah projection
+    # 8. BBM vs upah projection
     if bbm_change > wage_change:
-        parts.append(
+        additional_analysis.append(
             "Jika harga BBM naik lebih cepat dari upah, beban rumah tangga akan meningkat "
             "dan dapat menekan konsumsi."
         )
     else:
-        parts.append(
-            "Jika harga BBM naik lebih lambat dari upah, daya beli rumah tangga relatif terjaga."
+        additional_analysis.append(
+            "Jika harga BBM naik lebih lambat dari upah, daya beli relatif terjaga."
         )
 
-    # IKK projection
+    # 9. IKK projection
     if ikk_latest:
         ikk_val = ikk_latest["value"]
         if ikk_val > 100:
-            parts.append(
+            additional_analysis.append(
                 f"Jika IKK tetap optimis ({ikk_val:.1f} > 100), konsumsi rumah tangga "
                 f"menjadi penopang pertumbuhan."
             )
         else:
-            parts.append(
+            additional_analysis.append(
                 f"Jika IKK tetap di bawah 100 ({ikk_val:.1f}), konsumsi rumah tangga dapat melemah."
             )
 
-    return " ".join(parts)
+    # --- Build flat text for backward compatibility ---
+    all_parts = main_findings + additional_analysis
+    all_text = " ".join(all_parts)
+
+    return {
+        "main_findings": main_findings,
+        "additional_analysis": additional_analysis,
+        "deficit_info": {
+            "is_deficit": is_deficit,
+            "amount": abs(deficit_amount),
+            "percentage": deficit_pct,
+            "ump": ump_monthly,
+            "expenditure": monthly_expenditure,
+            "province": province,
+        },
+        "all_text": all_text,
+    }
 
 
 def _base_layout():
