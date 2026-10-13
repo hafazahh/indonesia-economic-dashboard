@@ -19,11 +19,6 @@ from data_fetcher import fetch_all
 from macro_fetcher import (
     fetch_all_macro,
     fetch_inflation_yoy,
-    ensure_literacy_interest,
-    UNESCO_READING_INTEREST,
-    UNESCO_READING_INTEREST_YEAR,
-    UNESCO_READING_INTEREST_RANK,
-    UNESCO_READING_INTEREST_TOTAL,
     BI_TARGET_LOW,
     BI_TARGET_HIGH,
     BI_TARGET_CENTER,
@@ -146,6 +141,11 @@ def compute_kpis(data):
     """Compute KPI cards from indicator data."""
     kpis = []
     for code, info in data.items():
+        if code == INFLATION_CODE:
+            # Inflasi World Bank dihapus dari card utama.
+            # Card inflasi sekarang pakai data BPS bulanan (inflation_yoy)
+            # yang ditambahkan di dashboard() sebagai card utama.
+            continue
         rows = info["data"]  # desc by year
         if not rows:
             continue
@@ -154,21 +154,8 @@ def compute_kpis(data):
         change = latest["value"] - prev["value"] if prev else 0
         arrow = "+" if change > 0 else ("-" if change < 0 else "")
         change_badge = "bg-success" if change >= 0 else "bg-danger"
-        if code == "FP.CPI.TOTL.ZG":
-            # Inflation: 3 granular conditions
-            if latest["value"] < 2.0:
-                status = "Di bawah target BI"
-                status_badge = "bg-info"
-            elif latest["value"] <= 4.0:
-                status = "Dalam target BI"
-                status_badge = "bg-success"
-            else:
-                status = "Di atas target BI"
-                status_badge = "bg-danger"
-            change_badge = "bg-danger" if change > 0 else "bg-success"
-        else:
-            status = None
-            status_badge = None
+        status = None
+        status_badge = None
         # With fewer than two data points there is no meaningful YoY change.
         has_prev = prev is not None
         kpis.append({
@@ -180,22 +167,26 @@ def compute_kpis(data):
             "change_badge_class": change_badge if has_prev else "bg-secondary",
             "status": status,
             "status_badge_class": status_badge,
+            "comparison_label": "vs tahun lalu",
         })
     return kpis
 
 
-def generate_insight(data):
+def generate_insight(data, bps_inflation=None):
     """Generate insight text from the latest data.
 
     Recomputed on every request from whatever is in the database, so the text
     follows the data automatically after each scheduled refresh.
+
+    bps_inflation: dict dari inflation_yoy latest (BPS bulanan). Jika ada,
+    narasi inflasi pakai data BPS (bulanan) bukan World Bank (tahunan).
     """
     pdb_info = data.get(GDP_GROWTH_CODE, {})
     inflasi_info = data.get(INFLATION_CODE, {})
     trade_info = data.get(TRADE_BALANCE_CODE, {})
 
     pdb = pdb_info.get("latest")
-    inflasi = inflasi_info.get("latest")
+    inflasi = bps_inflation or inflasi_info.get("latest")
     trade = trade_info.get("latest")
 
     # Previous-year rows for trend analysis (data is ordered year DESC).
@@ -233,6 +224,7 @@ def generate_insight(data):
         )
 
     # 2. Inflasi — 3 kondisi granular
+    #    BPS bulanan (bps_inflation) diprioritaskan; fallback ke World Bank.
     if inflasi:
         val = inflasi["value"]
         if val < 2.0:
@@ -242,8 +234,12 @@ def generate_insight(data):
         else:
             kondisi = "di atas target BI (2-4%), menekan ruang kebijakan moneter"
 
+        source_label = "BPS (IHK YoY)" if bps_inflation else f"{inflasi['year']}"
+        date_label = _format_month_id(inflasi["date"]) if bps_inflation else inflasi["year"]
+        # BPS bulanan: 2 desimal (3.28%). World Bank tahunan: 1 desimal (1.9%).
+        val_str = f"{val:.2f}" if bps_inflation else f"{val:.1f}"
         parts.append(
-            f"Inflasi {val:.1f}% ({inflasi['year']}) {kondisi}."
+            f"Inflasi {val_str}% ({date_label}, {source_label}) {kondisi}."
         )
 
     # 3. Trade Balance — magnitude + YoY trend
@@ -439,12 +435,65 @@ def _format_month_id(date_str):
 def dashboard():
     data = get_all_data()
     kpis = compute_kpis(data)
-    insight = generate_insight(data)
-    last_updated = get_last_updated() or "Belum pernah update"
+
+    # Inflasi BPS (bulanan) — diambil sebelum compute_kpis karena card ini
+    # tidak berasal dari data World Bank tapi dari time_series inflation_yoy.
+    inflation_yoy_latest = get_latest_series("inflation_yoy")
+    inflation_yoy_data = get_series("inflation_yoy", limit=12)
 
     # Attach per-indicator last_updated timestamp to each KPI card
     for kpi in kpis:
         kpi["last_updated"] = get_indicator_last_updated(kpi["code"]) or "Belum pernah update"
+
+    # Tambah card utama "Inflasi YoY (BPS)" dari data BPS bulanan.
+    # Card ini sengaja di sini (bukan di macro_kpis) agar tampil sebagai
+    # KPI utama, bukan indikator tambahan.
+    if inflation_yoy_latest:
+        val = inflation_yoy_latest["value"]
+        month_year = _format_month_id(inflation_yoy_latest["date"])
+
+        # Tentukan status target BI (corridor 1.5%–3.5%)
+        if val < BI_TARGET_LOW:
+            status = "Di bawah target BI"
+            status_badge = "bg-info"
+        elif val <= BI_TARGET_HIGH:
+            status = "Dalam target BI"
+            status_badge = "bg-success"
+        else:
+            status = "Di atas target BI"
+            status_badge = "bg-danger"
+
+        # Change vs bulan lalu (month-on-month change in pp)
+        prev_row = inflation_yoy_data[-2] if len(inflation_yoy_data) >= 2 else None
+        if prev_row:
+            mom_change = val - prev_row["value"]
+            arrow = "+" if mom_change > 0 else ("-" if mom_change < 0 else "")
+            change_badge = "bg-danger" if mom_change > 0 else "bg-success"
+            formatted_change = f"{arrow}{abs(mom_change):.2f} pp"
+            comparison_label = "vs bulan lalu"
+        else:
+            change_badge = "bg-secondary"
+            formatted_change = "Data tidak cukup"
+            comparison_label = ""
+            arrow = ""
+
+        kpis.insert(0, {
+            "code": "inflation_yoy",
+            "name": "Inflasi YoY",
+            "formatted_value": f"{val:.2f}%",
+            "formatted_change": formatted_change,
+            "change_arrow": arrow,
+            "change_badge_class": change_badge,
+            "status": status,
+            "status_badge_class": status_badge,
+            "comparison_label": comparison_label,
+            "date_label": month_year,
+            "source_label": "BPS",
+            "last_updated": inflation_yoy_latest.get("fetched_at", "Belum pernah update"),
+        })
+
+    insight = generate_insight(data, bps_inflation=inflation_yoy_latest)
+    last_updated = get_last_updated() or "Belum pernah update"
 
     # Chart data: 5 years ascending
     pdb_rows = sorted(data[GDP_GROWTH_CODE]["data"], key=lambda r: r["year"])
@@ -541,23 +590,20 @@ def dashboard():
             "source": "World Bank (SE.ADT.LITR.ZS)",
         })
 
-    # UNESCO Reading Interest Index card
-    literacy_interest_latest = get_latest_series("literacy_interest")
-    if literacy_interest_latest:
-        macro_kpis.append({
-            "name": "Minat Baca Aktif (UNESCO)",
-            "value": f"{UNESCO_READING_INTEREST}%",
-            "date": f"{UNESCO_READING_INTEREST_YEAR}",
-            "color": "text-danger",
-            "last_updated": literacy_interest_latest.get("fetched_at", "Belum pernah update"),
-            "description": (
-                f"Indeks minat baca aktif Indonesia {UNESCO_READING_INTEREST}% "
-                f"({UNESCO_READING_INTEREST_YEAR}). Berarti dari 1.000 orang hanya "
-                f"1 orang yang benar-benar suka membaca. Peringkat {UNESCO_READING_INTEREST_RANK}"
-                f"/{UNESCO_READING_INTEREST_TOTAL} negara (UNESCO UIS)."
-            ),
-            "source": "UNESCO UIS (2014)",
-        })
+    # PISA 2022 Reading Literacy card
+    macro_kpis.append({
+        "name": "Literasi Membaca (PISA 2022)",
+        "value": "359",
+        "date": "2022",
+        "color": "text-danger",
+        "last_updated": "2022-12-31",
+        "description": (
+            "Skor membaca PISA 2022 Indonesia 359 (OECD avg 476). "
+            "Hanya 25% siswa usia 15 thn memadai (OECD avg 74%). "
+            "Peringkat 73/80 negara."
+        ),
+        "source": "OECD PISA 2022",
+    })
 
     # Macro charts
     bi_rate_data = get_series("bi_rate", limit=12)
@@ -591,20 +637,9 @@ def dashboard():
     else:
         gini_chart = ""
 
-    # Inflation YoY (monthly BPS data)
-    inflation_yoy_latest = get_latest_series("inflation_yoy")
-    inflation_yoy_data = get_series("inflation_yoy", limit=12)
+    # Inflation YoY chart + snapshot (BPS monthly data — diambil di atas)
     inflation_snapshot = ""
     inflation_chart = ""
-
-    if inflation_yoy_latest:
-        macro_kpis.insert(0, {
-            "name": "Inflasi YoY",
-            "value": f"{inflation_yoy_latest['value']:.2f}%",
-            "date": inflation_yoy_latest["date"],
-            "color": "text-danger",
-            "last_updated": inflation_yoy_latest.get("fetched_at", "Belum pernah update"),
-        })
 
     if inflation_yoy_data:
         infl_dates = [r["date"] for r in inflation_yoy_data]
@@ -1048,8 +1083,6 @@ def bootstrap():
         fetch_all()
         fetch_all_macro()
         fetch_all_micro()
-    # Ensure UNESCO reading interest data is present (idempotent, no network)
-    ensure_literacy_interest()
     # Backfill historical data for charts (idempotent, safe to re-run)
     try:
         backfill_run()

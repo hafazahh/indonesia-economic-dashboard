@@ -55,10 +55,16 @@ expected = f"{abs(tb_now - tb_prev) / 1e9:.1f} miliar USD"
 check("Trade Balance nilai perubahan benar", tb_change == expected,
       f"dapat='{tb_change}' harus='{expected}'")
 
-check("Inflasi tetap pakai 'pp'", "pp" in kpis[INFLASI]["formatted_change"],
-      f"='{kpis[INFLASI]['formatted_change']}'")
+# INFLASI (World Bank) HARUS dihapus dari compute_kpis — BPS card ditambah di dashboard()
+check("Inflasi World Bank TIDAK di compute_kpis", INFLASI not in kpis,
+      f"codes={list(kpis.keys())}")
 check("PDB tetap pakai 'pp'", "pp" in kpis[PDB]["formatted_change"],
       f"='{kpis[PDB]['formatted_change']}'")
+
+# Semua card non-inflasi punya comparison_label 'vs tahun lalu'
+for code, kpi in kpis.items():
+    check(f"Card {code} punya comparison_label", kpi.get("comparison_label") == "vs tahun lalu",
+          f"='{kpi.get('comparison_label')}'")
 
 # Angka absurd tidak boleh muncul lagi
 check("Tidak ada angka mentah USD di label perubahan",

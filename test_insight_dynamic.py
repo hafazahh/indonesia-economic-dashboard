@@ -118,3 +118,68 @@ if unique == len(scenarios) and allok:
 else:
     print("KESIMPULAN: insight TIDAK sepenuhnya dinamis.")
     sys.exit(1)
+
+# ---------- BPS inflation (bulanan) diprioritaskan ----------
+print()
+print("=" * 78)
+print("TES BPS INFLASI (bulanan)")
+print("=" * 78)
+
+# Skenario: data World Bank inflasi 1.91% (2025), tapi BPS 3.28% (Sep 2026)
+bps_data = make(5.108, 1.913, 29649335679.15, pdb_prev=4.9, inf_prev=2.5)
+bps_infl = {"value": 3.28, "date": "2026-09-01"}
+
+insight_wb = appmod.generate_insight(bps_data)
+insight_bps = appmod.generate_insight(bps_data, bps_inflation=bps_infl)
+
+print(f"\nTanpa BPS: {insight_wb}")
+print(f"\nDengan BPS: {insight_bps}")
+
+bps_checks = [
+    ("BPS: teks berbeda dari World Bank", insight_wb != insight_bps),
+    ("BPS: memakai nilai 3.28%", "3.28%" in insight_bps),
+    ("BPS: memakai label BPS", "BPS" in insight_bps),
+    ("BPS: memakai bulan September 2026", "September 2026" in insight_bps),
+    ("BPS: status dalam target BI", "dalam target BI" in insight_bps),
+    ("WB: memakai nilai 1.9%", "1.9%" in insight_wb),
+    ("WB: memakai tahun 2025", "2025" in insight_wb),
+]
+
+bps_ok = True
+for label, ok in bps_checks:
+    print(f"[{'PASS' if ok else 'FAIL'}] {label}")
+    if not ok:
+        bps_ok = False
+
+# Skenario BPS di bawah target
+bps_low = {"value": 1.20, "date": "2026-09-01"}
+insight_low = appmod.generate_insight(bps_data, bps_inflation=bps_low)
+print(f"\nBPS di bawah target: {insight_low}")
+bps_checks2 = [
+    ("BPS <1.5%: status di bawah target", "di bawah target BI" in insight_low),
+    ("BPS <1.5%: akomodatif", "akomodatif" in insight_low),
+]
+for label, ok in bps_checks2:
+    print(f"[{'PASS' if ok else 'FAIL'}] {label}")
+    if not ok:
+        bps_ok = False
+
+# Skenario BPS di atas target
+bps_high = {"value": 5.50, "date": "2026-09-01"}
+insight_high = appmod.generate_insight(bps_data, bps_inflation=bps_high)
+print(f"\nBPS di atas target: {insight_high}")
+bps_checks3 = [
+    ("BPS >3.5%: status di atas target", "di atas target BI" in insight_high),
+    ("BPS >3.5%: menekan ruang", "menekan ruang" in insight_high),
+]
+for label, ok in bps_checks3:
+    print(f"[{'PASS' if ok else 'FAIL'}] {label}")
+    if not ok:
+        bps_ok = False
+
+print()
+if bps_ok:
+    print("KESIMPULAN: BPS inflation override bekerja dengan benar.")
+else:
+    print("KESIMPULAN: BPS inflation override GAGAL.")
+    sys.exit(1)

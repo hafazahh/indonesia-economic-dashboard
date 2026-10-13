@@ -51,11 +51,23 @@
                         <span class="badge {{ kpi.change_badge_class }} status-badge">
                             {{ kpi.change_arrow }}{{ kpi.formatted_change }}
                         </span>
-                        <small class="text-muted">vs tahun lalu</small>
+                        {% if kpi.comparison_label %}
+                        <small class="text-muted">{{ kpi.comparison_label }}</small>
+                        {% endif %}
                     </div>
                     {% if kpi.status %}
                     <div class="mt-2">
                         <span class="badge {{ kpi.status_badge_class }} status-badge">{{ kpi.status }}</span>
+                    </div>
+                    {% endif %}
+                    {% if kpi.date_label or kpi.source_label %}
+                    <div class="mt-2">
+                        {% if kpi.date_label %}
+                        <span class="badge bg-secondary status-badge">{{ kpi.date_label }}</span>
+                        {% endif %}
+                        {% if kpi.source_label %}
+                        <span class="badge bg-light text-dark status-badge">{{ kpi.source_label }}</span>
+                        {% endif %}
                     </div>
                     {% endif %}
                     <div class="mt-2">
