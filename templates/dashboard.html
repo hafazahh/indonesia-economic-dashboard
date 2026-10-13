@@ -70,6 +70,18 @@
                         {% endif %}
                     </div>
                     {% endif %}
+                    {% if kpi.description %}
+                    <div class="mt-2">
+                        <small class="text-muted">{{ kpi.description }}</small>
+                    </div>
+                    {% endif %}
+                    {% if kpi.wb_annual_value %}
+                    <div class="mt-2">
+                        <small class="text-muted">
+                            Tahunan (WB {{ kpi.wb_annual_year }}): {{ "%.1f"|format(kpi.wb_annual_value) }}%
+                        </small>
+                    </div>
+                    {% endif %}
                     <div class="mt-2">
                         <small class="text-muted">Diperbarui: {{ kpi.last_updated }}</small>
                     </div>
