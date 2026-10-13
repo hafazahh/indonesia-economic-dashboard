@@ -258,11 +258,11 @@
             <div class="assumption-box mt-3">
                 <strong>Asumsi Perhitungan:</strong>
                 <ul class="mb-0 mt-1">
-                    <li>UMP {{ metrics.province }}: Rp {{ "{:,.0f}".format(metrics.ump_monthly) }}/bulan</li>
+                    <li>UMP {{ metrics.province }}: Rp {{ "{:,.0f}".format(metrics.ump_monthly) }}/bulan — <strong>BPS</strong></li>
                     <li>Upah per jam: Rp {{ "{:,.0f}".format(metrics.ump_hourly) }} (173 jam kerja/bulan)</li>
-                    <li>Harga Pertalite ({{ daerah_list[selected_daerah].label }}): Rp {{ "{:,.0f}".format(metrics.bbm_price) }}/liter</li>
-                    <li>Konsumsi BBM: {{ metrics.monthly_consumption }} liter/bulan</li>
-                    <li>Total pengeluaran: Rp {{ "{:,.0f}".format(metrics.monthly_expenditure) }}/bulan</li>
+                    <li>Harga Pertalite ({{ daerah_list[selected_daerah].label }}): Rp {{ "{:,.0f}".format(metrics.bbm_price) }}/liter — <strong>Pertamina Patra Niaga</strong></li>
+                    <li>Konsumsi BBM: {{ metrics.monthly_consumption }} liter/bulan (asumsi)</li>
+                    <li>Total pengeluaran: Rp {{ "{:,.0f}".format(metrics.monthly_expenditure) }}/bulan — <strong>BPS Susenas 2024</strong></li>
                     <li>Indeks BBM & upah: base 2020 (Pertalite Rp 6.500, UMP Rp 2.800)</li>
                 </ul>
             </div>
@@ -273,7 +273,7 @@
     <footer>
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
             <div>
-                <strong>Sumber Data:</strong> BI (BI-Rate, IKK), Frankfurter (USD/IDR), World Bank (Gini), Logam Mulia (Emas), Pertamina (BBM), BPS/Kemnaker (UMP)
+                <strong>Sumber Data:</strong> Bank Indonesia (BI-Rate, IKK), Frankfurter (USD/IDR), World Bank (Gini), Logam Mulia (Emas), Pertamina (BBM), BPS/Kemnaker (UMP), BPS Susenas (pengeluaran rumah tangga)
                 &nbsp;|&nbsp;
                 <strong>Makro Updated:</strong> {{ macro_updated }}
                 &nbsp;|&nbsp;

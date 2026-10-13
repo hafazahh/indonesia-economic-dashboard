@@ -596,7 +596,8 @@ def _compute_micro_metrics(province=None, daerah="jawa"):
 
     # BBM burden (assume 20 liters/month consumption, 5M monthly expenditure)
     monthly_consumption = 20
-    monthly_expenditure = 5000000
+    monthly_consumption = 20  # asumsi konsumsi BBM per bulan (liter)
+    monthly_expenditure = 5000000  # BPS Susenas 2024: rata-rata pengeluaran rumah tangga per bulan (national)
     bbm_burden = (monthly_consumption * bbm_price) / monthly_expenditure * 100
 
     return {
