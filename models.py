@@ -200,15 +200,15 @@ def upsert_series(series_key, date_str, value):
 
 
 def get_series(series_key, limit=100):
-    """Get time-series data ordered by date ascending."""
+    """Get time-series data ordered by date ascending (most recent `limit` rows)."""
     with db() as conn:
         rows = conn.execute(
             """SELECT date, value, fetched_at FROM time_series
                WHERE series_key = ? AND value IS NOT NULL
-               ORDER BY date ASC LIMIT ?""",
+               ORDER BY date DESC LIMIT ?""",
             (series_key, limit),
         ).fetchall()
-    return [dict(r) for r in rows]
+    return [dict(r) for r in reversed(rows)]
 
 
 def get_latest_series(series_key):
