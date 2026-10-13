@@ -13,6 +13,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from models import (
     init_db, get_all_data, get_last_updated, count_rows,
     get_series, get_latest_series, get_series_metadata,
+    get_indicator_last_updated, get_series_last_updated,
 )
 from data_fetcher import fetch_all
 from macro_fetcher import fetch_all_macro
@@ -354,6 +355,10 @@ def dashboard():
     insight = generate_insight(data)
     last_updated = get_last_updated() or "Belum pernah update"
 
+    # Attach per-indicator last_updated timestamp to each KPI card
+    for kpi in kpis:
+        kpi["last_updated"] = get_indicator_last_updated(kpi["code"]) or "Belum pernah update"
+
     # Chart data: 5 years ascending
     pdb_rows = sorted(data[GDP_GROWTH_CODE]["data"], key=lambda r: r["year"])
     inflasi_rows = sorted(data[INFLATION_CODE]["data"], key=lambda r: r["year"])
@@ -394,6 +399,7 @@ def dashboard():
             "value": f"{bi_rate_latest['value']:.2f}%",
             "date": bi_rate_latest["date"],
             "color": "text-success",
+            "last_updated": bi_rate_latest.get("fetched_at", "Belum pernah update"),
         })
     if usd_idr_latest:
         macro_kpis.append({
@@ -401,6 +407,7 @@ def dashboard():
             "value": f"{usd_idr_latest['value']:,.0f}",
             "date": usd_idr_latest["date"],
             "color": "text-info",
+            "last_updated": usd_idr_latest.get("fetched_at", "Belum pernah update"),
         })
     if gini_latest:
         macro_kpis.append({
@@ -408,6 +415,7 @@ def dashboard():
             "value": f"{gini_latest['value']:.1f}",
             "date": gini_latest["date"],
             "color": "text-warning",
+            "last_updated": gini_latest.get("fetched_at", "Belum pernah update"),
         })
     if life_exp_latest:
         macro_kpis.append({
@@ -415,6 +423,7 @@ def dashboard():
             "value": f"{life_exp_latest['value']:.1f} thn",
             "date": life_exp_latest["date"],
             "color": "text-primary",
+            "last_updated": life_exp_latest.get("fetched_at", "Belum pernah update"),
         })
     if edu_exp_latest:
         macro_kpis.append({
@@ -422,6 +431,7 @@ def dashboard():
             "value": f"{edu_exp_latest['value']:.1f}%",
             "date": edu_exp_latest["date"],
             "color": "text-secondary",
+            "last_updated": edu_exp_latest.get("fetched_at", "Belum pernah update"),
         })
     if literacy_latest:
         macro_kpis.append({
@@ -429,6 +439,7 @@ def dashboard():
             "value": f"{literacy_latest['value']:.1f}%",
             "date": literacy_latest["date"],
             "color": "text-dark",
+            "last_updated": literacy_latest.get("fetched_at", "Belum pernah update"),
         })
 
     # Macro charts
@@ -759,6 +770,19 @@ def micro_economy():
     # Last updated
     macro_updated = get_series_metadata("macro_last_updated") or "Belum pernah update"
     micro_updated = get_series_metadata("micro_last_updated") or "Belum pernah update"
+
+    # Attach per-indicator timestamp
+    def _with_ts(latest_dict):
+        if latest_dict:
+            latest_dict["last_updated"] = latest_dict.get("fetched_at", "Belum pernah update")
+        return latest_dict
+
+    gold_latest = _with_ts(gold_latest)
+    pertalite_latest = _with_ts(pertalite_latest)
+    pertamax_latest = _with_ts(pertamax_latest)
+    ikk_latest = _with_ts(ikk_latest)
+    bi_rate_latest = _with_ts(bi_rate_latest)
+    usd_idr_latest = _with_ts(usd_idr_latest)
 
     return render_template(
         "micro.html",

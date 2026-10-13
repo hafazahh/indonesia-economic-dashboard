@@ -124,6 +124,30 @@ def set_last_updated():
         )
 
 
+def get_indicator_last_updated(code):
+    """Get the fetched_at timestamp for the most recent row of an indicator."""
+    with db() as conn:
+        row = conn.execute(
+            """SELECT fetched_at FROM indicators
+               WHERE code = ? AND value IS NOT NULL
+               ORDER BY year DESC LIMIT 1""",
+            (code,),
+        ).fetchone()
+    return row["fetched_at"] if row else None
+
+
+def get_series_last_updated(series_key):
+    """Get the fetched_at timestamp for the most recent row of a series."""
+    with db() as conn:
+        row = conn.execute(
+            """SELECT fetched_at FROM time_series
+               WHERE series_key = ? AND value IS NOT NULL
+               ORDER BY date DESC LIMIT 1""",
+            (series_key,),
+        ).fetchone()
+    return row["fetched_at"] if row else None
+
+
 def count_rows():
     """Total indicator rows stored (used by /health to verify a deploy)."""
     try:

@@ -446,3 +446,37 @@ header keamanan hilang.
 
 **Commit:** `fe93b35` (kode + test), `5c7aab3` (docs), keduanya pushed ke
 `master`. Bukti: `dashboard_sec_headers_live.png`.
+
+---
+
+## Sesi 2026-10-13 — Fase 17.2: Timestamp Update per KPI Card (leadengineer)
+
+**Goal:** Tambahkan "Diperbarui: ..." di setiap KPI card di `/` dan `/micro`,
+plus badge fallback untuk data hardcoded.
+
+**Perubahan:**
+
+1. **models.py** — tambah 2 helper:
+   - `get_indicator_last_updated(code)` — return `fetched_at` dari row terbaru
+   - `get_series_last_updated(series_key)` — return `fetched_at` dari series
+
+2. **app.py** — attach timestamp ke setiap KPI:
+   - `dashboard()`: loop `kpis` → `kpi["last_updated"] = get_indicator_last_updated(code)`
+   - Macro KPI cards: `last_updated` dari `fetched_at` series
+   - `micro_economy()`: `_with_ts()` helper attach `fetched_at` ke setiap latest dict
+
+3. **templates/dashboard.html** — timestamp di setiap KPI card:
+   - Main KPI cards: `<small>Diperbarui: {{ kpi.last_updated }}</small>`
+   - Macro KPI cards: sama
+   - Proyeksi IMF WEO: badge "Data Historis (Estimasi)"
+
+4. **templates/micro.html** — timestamp di setiap section:
+   - Emas, Pertalite, Pertamax, IKK, BI-Rate, USD/IDR cards
+   - BBM vs Wage chart: badge "Data Historis (Estimasi)" + warning text
+
+**Verifikasi:**
+- `test_kpi_units.py` — **17/17 PASS**
+- `test_insight_dynamic.py` — **21/21 PASS**
+- `test_security_headers.py` — **50/50 PASS**
+
+**Error:** tidak ada.

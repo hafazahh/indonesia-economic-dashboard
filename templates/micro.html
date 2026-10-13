@@ -67,6 +67,7 @@
                         {% if gold_latest %}{{ "{:,.0f}".format(gold_latest.value) }}{% else %}-{% endif %}
                     </div>
                     <small class="text-muted">{% if gold_latest %}{{ gold_latest.date }}{% endif %}</small>
+                    {% if gold_latest %}<br><small class="text-muted">Diperbarui: {{ gold_latest.last_updated }}</small>{% endif %}
                 </div>
             </div>
         </div>
@@ -78,6 +79,7 @@
                         {% if pertalite_latest %}{{ "{:,.0f}".format(pertalite_latest.value) }}{% else %}-{% endif %}
                     </div>
                     <small class="text-muted">{% if pertalite_latest %}{{ pertalite_latest.date }}{% endif %}</small>
+                    {% if pertalite_latest %}<br><small class="text-muted">Diperbarui: {{ pertalite_latest.last_updated }}</small>{% endif %}
                 </div>
             </div>
         </div>
@@ -89,6 +91,7 @@
                         {% if pertamax_latest %}{{ "{:,.0f}".format(pertamax_latest.value) }}{% else %}-{% endif %}
                     </div>
                     <small class="text-muted">{% if pertamax_latest %}{{ pertamax_latest.date }}{% endif %}</small>
+                    {% if pertamax_latest %}<br><small class="text-muted">Diperbarui: {{ pertamax_latest.last_updated }}</small>{% endif %}
                 </div>
             </div>
         </div>
@@ -100,6 +103,7 @@
                         {% if ikk_latest %}{{ "{:.1f}".format(ikk_latest.value) }}{% else %}-{% endif %}
                     </div>
                     <small class="text-muted">{% if ikk_latest %}{{ ikk_latest.date }}{% endif %}</small>
+                    {% if ikk_latest %}<br><small class="text-muted">Diperbarui: {{ ikk_latest.last_updated }}</small>{% endif %}
                 </div>
             </div>
         </div>
@@ -111,6 +115,7 @@
                         {% if bi_rate_latest %}{{ "{:.2f}%".format(bi_rate_latest.value) }}{% else %}-{% endif %}
                     </div>
                     <small class="text-muted">{% if bi_rate_latest %}{{ bi_rate_latest.date }}{% endif %}</small>
+                    {% if bi_rate_latest %}<br><small class="text-muted">Diperbarui: {{ bi_rate_latest.last_updated }}</small>{% endif %}
                 </div>
             </div>
         </div>
@@ -122,6 +127,7 @@
                         {% if usd_idr_latest %}{{ "{:,.0f}".format(usd_idr_latest.value) }}{% else %}-{% endif %}
                     </div>
                     <small class="text-muted">{% if usd_idr_latest %}{{ usd_idr_latest.date }}{% endif %}</small>
+                    {% if usd_idr_latest %}<br><small class="text-muted">Diperbarui: {{ usd_idr_latest.last_updated }}</small>{% endif %}
                 </div>
             </div>
         </div>
@@ -138,9 +144,12 @@
     <!-- BBM vs Wage Chart -->
     <div class="card mb-4">
         <div class="card-body">
-            <h5 class="section-title">Indeks Harga BBM vs Indeks Upah Minimum</h5>
+            <h5 class="section-title">Indeks Harga BBM vs Indeks Upah Minimum
+                <span class="badge bg-warning text-dark ms-2">Data Historis (Estimasi)</span>
+            </h5>
             <div class="chart-container">{{ bbm_vs_wage_chart|safe }}</div>
             <small class="text-muted">Indeks 2014=100. Anotasi ↑/↓ menandai kenaikan/penurunan harga BBM signifikan (>10%).</small>
+            <br><small class="text-warning">⚠ Data historis BBM dan UMP adalah estimasi berdasarkan riwayat kebijakan harga.</small>
         </div>
     </div>
 
