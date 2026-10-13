@@ -529,6 +529,12 @@ def dashboard():
     inflation_yoy_latest = get_latest_series("inflation_yoy")
     inflation_yoy_data = get_series("inflation_yoy", limit=12)
 
+    # World Bank annual inflation data for the separate card
+    wb_inflasi_info = data.get(INFLATION_CODE, {})
+    wb_inflasi_latest = wb_inflasi_info.get("latest")
+    wb_inflasi_rows = wb_inflasi_info.get("data", [])
+    wb_inflasi_prev = wb_inflasi_rows[1] if len(wb_inflasi_rows) > 1 else None
+
     # Attach per-indicator last_updated timestamp to each KPI card
     for kpi in kpis:
         kpi["last_updated"] = get_indicator_last_updated(kpi["code"]) or "Belum pernah update"
@@ -567,7 +573,7 @@ def dashboard():
 
         kpis.insert(0, {
             "code": "inflation_yoy",
-            "name": "Inflasi YoY",
+            "name": "Inflasi YoY (BPS)",
             "formatted_value": f"{val:.2f}%",
             "formatted_change": formatted_change,
             "change_arrow": arrow,
@@ -578,6 +584,31 @@ def dashboard():
             "date_label": month_year,
             "source_label": "BPS",
             "last_updated": inflation_yoy_latest.get("fetched_at", "Belum pernah update"),
+        })
+
+    # Card "Inflasi Tahunan (World Bank)" — data tahunan dari World Bank.
+    # Ditampilkan sebagai card terpisah dengan label dan sumber jelas.
+    if wb_inflasi_latest:
+        wb_val = wb_inflasi_latest["value"]
+        wb_year = wb_inflasi_latest["year"]
+        wb_change = wb_val - wb_inflasi_prev["value"] if wb_inflasi_prev else 0
+        wb_arrow = "+" if wb_change > 0 else ("-" if wb_change < 0 else "")
+        wb_change_badge = "bg-success" if wb_change >= 0 else "bg-danger"
+        wb_formatted_change = f"{wb_arrow}{abs(wb_change):.2f} pp" if wb_inflasi_prev else "Data tidak cukup"
+        kpis.insert(0, {
+            "code": INFLATION_CODE,
+            "name": "Inflasi Tahunan (World Bank)",
+            "formatted_value": f"{wb_val:.2f}%",
+            "formatted_change": wb_formatted_change,
+            "change_arrow": wb_arrow,
+            "change_badge_class": wb_change_badge,
+            "status": None,
+            "status_badge_class": None,
+            "comparison_label": "vs tahun lalu" if wb_inflasi_prev else "",
+            "date_label": str(wb_year),
+            "source_label": "World Bank",
+            "description": "Rata-rata inflasi seluruh tahun",
+            "last_updated": get_indicator_last_updated(INFLATION_CODE) or "Belum pernah update",
         })
 
     insight = generate_insight(data, bps_inflation=inflation_yoy_latest)
