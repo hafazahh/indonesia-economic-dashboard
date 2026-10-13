@@ -21,9 +21,12 @@
 <body>
 <div class="container py-4">
     <!-- Header -->
-    <header class="mb-4">
-        <h1>Indonesia Economic Dashboard</h1>
-        <p class="text-muted">Data Makro untuk Akademisi &amp; Pebisnis</p>
+    <header class="mb-4 d-flex justify-content-between align-items-start flex-wrap gap-2">
+        <div>
+            <h1>Indonesia Economic Dashboard</h1>
+            <p class="text-muted">Data Makro untuk Akademisi &amp; Pebisnis</p>
+        </div>
+        <a href="/micro" class="btn btn-outline-success btn-sm mt-2">Micro Economy</a>
     </header>
 
     <!-- Peringatan data tidak tersedia -->
@@ -54,6 +57,9 @@
                         <span class="badge {{ kpi.status_badge_class }} status-badge">{{ kpi.status }}</span>
                     </div>
                     {% endif %}
+                    <div class="mt-2">
+                        <small class="text-muted">Diperbarui: {{ kpi.last_updated }}</small>
+                    </div>
                 </div>
             </div>
         </div>
@@ -69,17 +75,20 @@
     {% if macro_kpis %}
     <h4 class="section-title">Indikator Makro Tambahan</h4>
     <div class="row g-3 mb-4">
-        {% for mk in macro_kpis %}
-        <div class="col-md-2 col-sm-4">
-            <div class="card kpi-card h-100">
-                <div class="card-body text-center">
-                    <div class="kpi-label">{{ mk.name }}</div>
-                    <div class="kpi-value {{ mk.color }}">{{ mk.value }}</div>
-                    <small class="text-muted">{{ mk.date }}</small>
+    {% for mk in macro_kpis %}
+    <div class="col-md-2 col-sm-4">
+        <div class="card kpi-card h-100">
+            <div class="card-body text-center">
+                <div class="kpi-label">{{ mk.name }}</div>
+                <div class="kpi-value {{ mk.color }}">{{ mk.value }}</div>
+                <small class="text-muted">{{ mk.date }}</small>
+                <div class="mt-1">
+                    <small class="text-muted">Diperbarui: {{ mk.last_updated }}</small>
                 </div>
             </div>
         </div>
-        {% endfor %}
+    </div>
+    {% endfor %}
     </div>
 
     <!-- Macro Charts -->
@@ -176,8 +185,7 @@
                 <strong>Last Updated:</strong> {{ last_updated }}
             </div>
             <div>
-                <a href="/download/csv" class="btn btn-outline-primary btn-sm me-2">Download CSV</a>
-                <a href="/micro" class="btn btn-outline-success btn-sm">Micro Economy</a>
+                <a href="/download/csv" class="btn btn-outline-primary btn-sm">Download CSV</a>
             </div>
         </div>
     </footer>
