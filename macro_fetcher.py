@@ -46,14 +46,14 @@ HEADERS = {
 def _parse_bi_rate_html(html):
     """Parse BI-Rate from BI HTML table.
 
-    Table rows: | No | Tanggal | BI-Rate | Pranala |
-    Example:    | 1  | 23 September 2026 | 5.75 % | ... |
+    Table rows (BI renders as SharePoint table with td elements):
+      <tr><td>1</td><td>23 September 2026</td><td>5.75 %</td><td>...</td></tr>
     Returns list of (date_str, rate_float) sorted newest first.
     """
-    # Pattern: | <number> | <day> <month> <year> | <rate> % | ...
+    # Pattern: <td>23 September 2026</td><td>5.75 %</td>
     pattern = re.compile(
-        r'\|\s*\d+\s*\|\s*(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})\s*\|\s*([\d.]+)\s*%',
-        re.I,
+        r'<td[^>]*>\s*(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})\s*</td>\s*<td[^>]*>\s*([\d.]+)\s*%',
+        re.I | re.S,
     )
     bulan_map = {
         'januari': 1, 'februari': 2, 'maret': 3, 'april': 4,

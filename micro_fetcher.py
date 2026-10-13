@@ -1,9 +1,9 @@
 """Fetch micro economy data: emas, BBM, IKK, dan UMP per provinsi.
 
 Data sources:
-  - Emas: scrape logammulia.com (tabel harga emas harian)
+  - Emas: logam-mulia-api.iamutaki.workers.dev (JSON API, live)
   - BBM: scrape Pertamina (fallback ke nilai known jika gagal)
-  - IKK: scrape BI halaman survei konsumen
+  - IKK: scrape TradingEconomics (news summary, live)
   - UMP: hardcoded 37 provinsi (data 2024/2025 dari BPS/Kemnaker)
 """
 import os
@@ -17,9 +17,9 @@ from models import (
     init_db, init_time_series, upsert_series, set_series_metadata,
 )
 
-GOLD_URL = "https://www.logammulia.com/id/harga-emas-hari-ini"
+GOLD_API_URL = "https://logam-mulia-api.iamutaki.workers.dev/api/prices/anekalogam"
 BBM_URL = "https://www.pertamina.com/id/harga-bbm"
-IKK_URL = "https://www.bi.go.id/id/publikasi/survei/konsumen.aspx"
+IKK_URL = "https://tradingeconomics.com/indonesia/consumer-confidence"
 
 # UMP per provinsi 2024 (data BPS/Kemnaker, dalam ribu Rupiah per bulan)
 UMP_PROVINSI = {
@@ -45,7 +45,7 @@ BBM_KNOWN = {
     "Solar": 6800,
 }
 
-IKK_KNOWN = 125.0  # fallback IKK (Indeks Keyakinan Konsumen)
+IKK_KNOWN = 118.1  # fallback IKK (Indeks Keyakinan Konsumen, September 2026)
 
 # Gold fallback (scraped 2026-10-13, logammulia.com: 1 gr = Rp 2,574,000)
 GOLD_KNOWN = 2574000
@@ -58,40 +58,23 @@ HEADERS = {
 }
 
 
-def _parse_gold_html(html):
-    """Parse gold price from logammulia.com table.
-
-    Table rows: | Berat | Harga Dasar | Harga (+Pajak) |
-    Example:    | 1 gr   | 2,574,000  | 2,580,435      |
-    Returns harga dasar 1 gram (int).
-    """
-    # Find the "1 gr" row in the Emas Batangan table section
-    # Pattern: | 1 gr | <price> | <price+tax> |
-    pattern = re.compile(
-        r'\|\s*1\s*gr\s*\|\s*([\d,]+)\s*\|\s*([\d,]+)\s*\|',
-        re.I,
-    )
-    m = pattern.search(html)
-    if m:
-        harga_str = m.group(1).replace(",", "").replace(".", "")
-        return int(harga_str)
-    return None
-
-
 def fetch_gold():
-    """Fetch gold price from logammulia.com. Fallback to known value."""
+    """Fetch gold price from logam-mulia-api. Fallback to known value."""
     try:
-        resp = requests.get(GOLD_URL, headers=HEADERS, timeout=30)
+        resp = requests.get(GOLD_API_URL, timeout=30)
         resp.raise_for_status()
-        price = _parse_gold_html(resp.text)
-        if price:
-            from datetime import date
-            today = date.today().isoformat()
-            upsert_series("gold_gram", today, float(price))
-            set_series_metadata("gold_last_updated", today)
-            print(f"  Gold: Rp {price:,}/gram on {today}")
-            return 1
-        print("  Gold: could not parse price, using fallback")
+        data = resp.json()
+        # Find weight=1 gold entry (first match)
+        for item in data.get("data", []):
+            if item.get("weight") == 1 and item.get("material") == "gold":
+                price = item["sellPrice"]
+                from datetime import date
+                today = date.today().isoformat()
+                upsert_series("gold_gram", today, float(price))
+                set_series_metadata("gold_last_updated", today)
+                print(f"  Gold: Rp {price:,}/gram on {today}")
+                return 1
+        print("  Gold: no weight=1 entry found, using fallback")
         price = GOLD_KNOWN
     except Exception as e:
         print(f"  Gold: ERROR {e}, using fallback")
@@ -118,26 +101,42 @@ def fetch_bbm():
 
 
 def fetch_ikk():
-    """Fetch IKK from Bank Indonesia. Fallback to known value."""
+    """Fetch IKK from TradingEconomics. Fallback to known value."""
     try:
-        resp = requests.get(IKK_URL, timeout=30)
+        resp = requests.get(IKK_URL, headers=HEADERS, timeout=30)
         resp.raise_for_status()
-        # Try to parse IKK from page — BI uses dynamic content
-        # Look for IKK value patterns
-        # If parsing fails, use known value
-        from datetime import date
-        today = date.today().isoformat()
-        upsert_series("ikk", today, IKK_KNOWN)
-        set_series_metadata("ikk_last_updated", today)
-        print(f"  IKK: {IKK_KNOWN} (fallback) on {today}")
-        return 1
+        # Search for latest IKK value in news summary
+        # Pattern: "declined to 118.1 in September 2026" or "increased to 118.5 in August 2026"
+        m = re.search(
+            r"(?:declined|increased|rose|fell|dropped|climbed)\s+to\s+([\d.]+)\s+in\s+(\w+)\s+(\d{4})",
+            resp.text,
+        )
+        if m:
+            value = float(m.group(1))
+            month_str = m.group(2).lower()
+            year = m.group(3)
+            month_map = {
+                "january": 1, "february": 2, "march": 3, "april": 4,
+                "may": 5, "june": 6, "july": 7, "august": 8,
+                "september": 9, "october": 10, "november": 11, "december": 12,
+            }
+            month = month_map.get(month_str, 1)
+            date_str = f"{year}-{month:02d}-01"
+            upsert_series("ikk", date_str, value)
+            set_series_metadata("ikk_last_updated", date_str)
+            print(f"  IKK: {value} on {date_str}")
+            return 1
+        print("  IKK: could not parse from TradingEconomics, using fallback")
+        value = IKK_KNOWN
     except Exception as e:
-        from datetime import date
-        today = date.today().isoformat()
-        upsert_series("ikk", today, IKK_KNOWN)
-        set_series_metadata("ikk_last_updated", today)
-        print(f"  IKK: {IKK_KNOWN} (fallback after error: {e})")
-        return 1
+        print(f"  IKK: ERROR {e}, using fallback")
+        value = IKK_KNOWN
+    from datetime import date
+    today = date.today().isoformat()
+    upsert_series("ikk", today, value)
+    set_series_metadata("ikk_last_updated", today)
+    print(f"  IKK: {value} (fallback) on {today}")
+    return 1
 
 
 def get_ump_data():
