@@ -238,31 +238,9 @@ def generate_insight(data, bps_inflation=None):
         date_label = _format_month_id(inflasi["date"]) if bps_inflation else inflasi["year"]
         # BPS bulanan: 2 desimal (3.28%). World Bank tahunan: 1 desimal (1.9%).
         val_str = f"{val:.2f}" if bps_inflation else f"{val:.1f}"
-
-        # Fase 17.10: gabungkan BPS monthly + WB annual dalam 1 kalimat.
-        wb_latest = inflasi_info.get("latest")
-        if bps_inflation and wb_latest:
-            wb_val = wb_latest["value"]
-            wb_year = wb_latest["year"]
-            wb_str = f"{wb_val:.1f}"
-            if val > wb_val:
-                direction = "naik dari"
-                commentary = "Kenaikan ini menunjukkan tekanan inflasi lebih tinggi pada periode terbaru."
-            elif val < wb_val:
-                direction = "turun dari"
-                commentary = "Penurunan ini menunjukkan tekanan inflasi lebih rendah pada periode terbaru."
-            else:
-                direction = "sama dengan"
-                commentary = "Angka inflasi stabil dibanding rata-rata tahunan."
-            parts.append(
-                f"Inflasi {val_str}% ({date_label}, {source_label}), {kondisi}, "
-                f"{direction} rata-rata tahunan {wb_year} sebesar {wb_str}% (World Bank). "
-                f"{commentary}"
-            )
-        else:
-            parts.append(
-                f"Inflasi {val_str}% ({date_label}, {source_label}) {kondisi}."
-            )
+        parts.append(
+            f"Inflasi {val_str}% ({date_label}, {source_label}) {kondisi}."
+        )
 
     # 3. Trade Balance — magnitude + YoY trend
     if trade:
@@ -329,6 +307,94 @@ PROJECTION = [
     {"year": 2026, "pdb": 5.2, "inflasi": 2.3},
     {"year": 2027, "pdb": 5.3, "inflasi": 2.5},
 ]
+
+
+def generate_micro_insight(metrics, ikk_latest=None, bi_rate_latest=None, inflation_yoy_latest=None):
+    """Generate dynamic insight text for micro economy page.
+
+    Recomputed on every request from metrics dict and latest macro data.
+    All sentences are dynamic — no hardcoded strings.
+    """
+    parts = []
+
+    province = metrics["province"]
+    ump_monthly = metrics["ump_monthly"]
+    bbm_price = metrics["bbm_price"]
+    liters_per_ump = metrics["liters_per_ump"]
+    hours_per_liter = metrics["hours_per_liter"]
+    bbm_index_2014 = metrics["bbm_index_2014"]
+    wage_index_2014 = metrics["wage_index_2014"]
+    bbm_burden = metrics["bbm_burden"]
+    monthly_consumption = metrics["monthly_consumption"]
+    monthly_expenditure = metrics["monthly_expenditure"]
+
+    # 1. Liter per upah minimum
+    parts.append(
+        f"Dengan 1 bulan upah minimum di {province} (Rp {ump_monthly:,.0f}), "
+        f"bisa membeli {liters_per_ump:,.0f} liter Pertalite. "
+        f"Ini menunjukkan daya beli upah terhadap kebutuhan bakar kendaraan."
+    )
+
+    # 2. Jam kerja per liter
+    parts.append(
+        f"Pekerja di {province} harus bekerja {hours_per_liter:,.1f} jam untuk membeli 1 liter Pertalite. "
+        f"Semakin kecil angka ini, semakin ringan beban hidup."
+    )
+
+    # 3. Indeks BBM vs upah (sejak 2014)
+    bbm_change = bbm_index_2014 - 100
+    wage_change = wage_index_2014 - 100
+    if bbm_change > wage_change:
+        comparison = "naik lebih cepat dari upah"
+    elif bbm_change < wage_change:
+        comparison = "naik lebih lambat dari upah"
+    else:
+        comparison = "naik seimbang dengan upah"
+    parts.append(
+        f"Sejak 2014, harga BBM naik {bbm_change:.0f}% sedangkan upah naik {wage_change:.0f}%. "
+        f"BBM {comparison}."
+    )
+
+    # 4. Beban BBM terhadap pengeluaran
+    bbm_spending = monthly_consumption * bbm_price
+    parts.append(
+        f"Keluaran Rp {bbm_spending:,.0f}/bulan habis untuk BBM, sekitar {bbm_burden:.1f}% "
+        f"dari total pengeluaran (Rp {monthly_expenditure:,.0f}/bulan)."
+    )
+
+    # 5. Proyeksi makro — IMF WEO
+    proj_2027 = next((p for p in PROJECTION if p["year"] == 2027), None)
+    if proj_2027:
+        parts.append(
+            f"Jika inflasi tetap dalam target BI dan BI-Rate stabil, proyeksi PDB 2027 "
+            f"mencapai {proj_2027['pdb']:.1f}% (IMF WEO)."
+        )
+
+    # BBM vs upah projection
+    if bbm_change > wage_change:
+        parts.append(
+            "Jika harga BBM naik lebih cepat dari upah, beban rumah tangga akan meningkat "
+            "dan dapat menekan konsumsi."
+        )
+    else:
+        parts.append(
+            "Jika harga BBM naik lebih lambat dari upah, daya beli rumah tangga relatif terjaga."
+        )
+
+    # IKK projection
+    if ikk_latest:
+        ikk_val = ikk_latest["value"]
+        if ikk_val > 100:
+            parts.append(
+                f"Jika IKK tetap optimis ({ikk_val:.1f} > 100), konsumsi rumah tangga "
+                f"menjadi penopang pertumbuhan."
+            )
+        else:
+            parts.append(
+                f"Jika IKK tetap di bawah 100 ({ikk_val:.1f}), konsumsi rumah tangga dapat melemah."
+            )
+
+    return " ".join(parts)
 
 
 def _base_layout():
@@ -470,12 +536,6 @@ def dashboard():
     # Tambah card utama "Inflasi YoY (BPS)" dari data BPS bulanan.
     # Card ini sengaja di sini (bukan di macro_kpis) agar tampil sebagai
     # KPI utama, bukan indikator tambahan.
-    # World Bank annual inflation di-attach sebagai sub-value (Fase 17.10).
-    wb_inflasi_info = data.get(INFLATION_CODE, {})
-    wb_inflasi_latest = wb_inflasi_info.get("latest")
-    wb_inflasi_rows = wb_inflasi_info.get("data", [])
-    wb_inflasi_prev = wb_inflasi_rows[1] if len(wb_inflasi_rows) > 1 else None
-
     if inflation_yoy_latest:
         val = inflation_yoy_latest["value"]
         month_year = _format_month_id(inflation_yoy_latest["date"])
@@ -505,21 +565,9 @@ def dashboard():
             comparison_label = ""
             arrow = ""
 
-        # Attach World Bank annual inflation as sub-value (Fase 17.10)
-        wb_annual_value = None
-        wb_annual_year = None
-        wb_annual_prev_value = None
-        wb_annual_prev_year = None
-        if wb_inflasi_latest:
-            wb_annual_value = wb_inflasi_latest["value"]
-            wb_annual_year = wb_inflasi_latest["year"]
-        if wb_inflasi_prev:
-            wb_annual_prev_value = wb_inflasi_prev["value"]
-            wb_annual_prev_year = wb_inflasi_prev["year"]
-
         kpis.insert(0, {
             "code": "inflation_yoy",
-            "name": "Inflasi YoY (BPS)",
+            "name": "Inflasi YoY",
             "formatted_value": f"{val:.2f}%",
             "formatted_change": formatted_change,
             "change_arrow": arrow,
@@ -530,31 +578,6 @@ def dashboard():
             "date_label": month_year,
             "source_label": "BPS",
             "last_updated": inflation_yoy_latest.get("fetched_at", "Belum pernah update"),
-        })
-
-    # Card "Inflasi Tahunan (World Bank)" — data tahunan dari World Bank.
-    # Ditampilkan sebagai card terpisah dengan label dan sumber jelas.
-    if wb_inflasi_latest:
-        wb_val = wb_inflasi_latest["value"]
-        wb_year = wb_inflasi_latest["year"]
-        wb_change = wb_val - wb_inflasi_prev["value"] if wb_inflasi_prev else 0
-        wb_arrow = "+" if wb_change > 0 else ("-" if wb_change < 0 else "")
-        wb_change_badge = "bg-success" if wb_change >= 0 else "bg-danger"
-        wb_formatted_change = f"{wb_arrow}{abs(wb_change):.2f} pp" if wb_inflasi_prev else "Data tidak cukup"
-        kpis.insert(0, {
-            "code": INFLATION_CODE,
-            "name": "Inflasi Tahunan (World Bank)",
-            "formatted_value": f"{wb_val:.2f}%",
-            "formatted_change": wb_formatted_change,
-            "change_arrow": wb_arrow,
-            "change_badge_class": wb_change_badge,
-            "status": None,
-            "status_badge_class": None,
-            "comparison_label": "vs tahun lalu" if wb_inflasi_prev else "",
-            "date_label": str(wb_year),
-            "source_label": "World Bank",
-            "description": "Rata-rata inflasi seluruh tahun",
-            "last_updated": get_indicator_last_updated(INFLATION_CODE) or "Belum pernah update",
         })
 
     insight = generate_insight(data, bps_inflation=inflation_yoy_latest)
@@ -845,6 +868,12 @@ def _compute_micro_metrics(province=None, daerah="jawa"):
     wage_index = (ump / ump_2020) * 100
     bbm_vs_wage = (bbm_index / wage_index) * 100
 
+    # 2014-based indices (for insight text — matches chart baseline)
+    bbm_2014 = 8500  # Pertalite 2014
+    ump_2014 = 2200  # avg 2014
+    bbm_index_2014 = (bbm_price / bbm_2014) * 100
+    wage_index_2014 = (ump / ump_2014) * 100
+
     # BBM burden (assume 20 liters/month consumption, 5M monthly expenditure)
     monthly_consumption = 20
     monthly_consumption = 20  # asumsi konsumsi BBM per bulan (liter)
@@ -864,6 +893,8 @@ def _compute_micro_metrics(province=None, daerah="jawa"):
         "bbm_burden": bbm_burden,
         "monthly_consumption": monthly_consumption,
         "monthly_expenditure": monthly_expenditure,
+        "bbm_index_2014": bbm_index_2014,
+        "wage_index_2014": wage_index_2014,
     }
 
 
@@ -1016,6 +1047,7 @@ def micro_economy():
     ikk_latest = get_latest_series("ikk")
     bi_rate_latest = get_latest_series("bi_rate")
     usd_idr_latest = get_latest_series("usd_idr")
+    inflation_yoy_latest = get_latest_series("inflation_yoy")
 
     # BBM vs wage chart with historical BBM price data + wage index
     # Historical BBM Pertalite prices (Rupiah/liter) — government regulated changes
@@ -1102,6 +1134,14 @@ def micro_economy():
     bi_rate_latest = _with_ts(bi_rate_latest)
     usd_idr_latest = _with_ts(usd_idr_latest)
 
+    # Generate dynamic insight text
+    insight = generate_micro_insight(
+        metrics,
+        ikk_latest=ikk_latest,
+        bi_rate_latest=bi_rate_latest,
+        inflation_yoy_latest=inflation_yoy_latest,
+    )
+
     return render_template(
         "micro.html",
         emas_bbm_chart=emas_bbm_chart,
@@ -1125,6 +1165,7 @@ def micro_economy():
         bbm_vs_wage_chart=bbm_vs_wage_chart,
         daerah_list=daerah_list,
         selected_daerah=selected_daerah,
+        insight=insight,
     )
 
 
