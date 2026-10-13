@@ -18,6 +18,7 @@ from models import (
 from data_fetcher import fetch_all
 from macro_fetcher import fetch_all_macro
 from micro_fetcher import fetch_all_micro, UMP_PROVINSI, BBM_PER_DAERAH
+from backfill import run as backfill_run
 from scheduler import start_scheduler, stop_scheduler, scheduler_running
 
 app = Flask(__name__)
@@ -897,6 +898,11 @@ def bootstrap():
         fetch_all()
         fetch_all_macro()
         fetch_all_micro()
+        # Backfill historical data for charts (idempotent, safe to re-run)
+        try:
+            backfill_run()
+        except Exception as exc:
+            print(f"[Bootstrap] Backfill failed (non-fatal): {exc}")
     start_scheduler()
 
 
