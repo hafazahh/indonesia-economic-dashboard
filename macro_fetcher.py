@@ -201,6 +201,22 @@ def fetch_literacy_interest():
     return 1
 
 
+def ensure_literacy_interest():
+    """Idempotent: ensure UNESCO reading interest data exists in DB.
+    
+    No network call — just checks and inserts if missing.
+    Safe to run on every bootstrap.
+    """
+    from models import get_latest_series
+    existing = get_latest_series("literacy_interest")
+    if existing is None:
+        date_str = f"{UNESCO_READING_INTEREST_YEAR}-12-31"
+        upsert_series("literacy_interest", date_str, UNESCO_READING_INTEREST)
+        print(f"  literacy_interest (UNESCO): inserted {UNESCO_READING_INTEREST}% ({UNESCO_READING_INTEREST_YEAR})")
+    else:
+        print(f"  literacy_interest (UNESCO): already exists ({existing['value']}%)")
+
+
 def fetch_all_macro():
     """Fetch all macro indicators."""
     init_db()

@@ -18,6 +18,7 @@ from models import (
 from data_fetcher import fetch_all
 from macro_fetcher import (
     fetch_all_macro,
+    ensure_literacy_interest,
     UNESCO_READING_INTEREST,
     UNESCO_READING_INTEREST_YEAR,
     UNESCO_READING_INTEREST_RANK,
@@ -934,11 +935,13 @@ def bootstrap():
         fetch_all()
         fetch_all_macro()
         fetch_all_micro()
-        # Backfill historical data for charts (idempotent, safe to re-run)
-        try:
-            backfill_run()
-        except Exception as exc:
-            print(f"[Bootstrap] Backfill failed (non-fatal): {exc}")
+    # Ensure UNESCO reading interest data is present (idempotent, no network)
+    ensure_literacy_interest()
+    # Backfill historical data for charts (idempotent, safe to re-run)
+    try:
+        backfill_run()
+    except Exception as exc:
+        print(f"[Bootstrap] Backfill failed (non-fatal): {exc}")
     start_scheduler()
 
 
