@@ -35,10 +35,20 @@
         </div>
     </header>
 
-    <!-- Province Selector -->
+    <!-- Province + Daerah Selector -->
     <div class="card mb-4">
         <div class="card-body">
             <form method="get" action="/micro" class="row g-2 align-items-end">
+                <div class="col-auto">
+                    <label for="daerah" class="form-label mb-0">Pilih Wilayah (BBM)</label>
+                </div>
+                <div class="col-auto province-select">
+                    <select name="daerah" id="daerah" class="form-select form-select-sm">
+                        {% for dk, info in daerah_list.items() %}
+                        <option value="{{ dk }}" {{ 'selected' if dk == selected_daerah else '' }}>{{ info.label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
                 <div class="col-auto">
                     <label for="province" class="form-label mb-0">Pilih Provinsi (UMP)</label>
                 </div>
@@ -74,7 +84,7 @@
         <div class="col-md-2 col-sm-4">
             <div class="card kpi-card h-100">
                 <div class="card-body text-center">
-                    <div class="kpi-label">Pertalite</div>
+                    <div class="kpi-label">Pertalite <span class="badge bg-warning text-dark ms-1" title="Data Oktober 2026">Okt 2026</span></div>
                     <div class="kpi-value text-danger">
                         {% if pertalite_latest %}{{ "{:,.0f}".format(pertalite_latest.value) }}{% else %}-{% endif %}
                     </div>
@@ -86,7 +96,7 @@
         <div class="col-md-2 col-sm-4">
             <div class="card kpi-card h-100">
                 <div class="card-body text-center">
-                    <div class="kpi-label">Pertamax</div>
+                    <div class="kpi-label">Pertamax <span class="badge bg-warning text-dark ms-1" title="Data Oktober 2026">Okt 2026</span></div>
                     <div class="kpi-value text-danger">
                         {% if pertamax_latest %}{{ "{:,.0f}".format(pertamax_latest.value) }}{% else %}-{% endif %}
                     </div>
@@ -180,7 +190,7 @@
     <!-- Combined Metrics -->
     <div class="card mb-4">
         <div class="card-body">
-            <h5 class="section-title">Metrik Gabungan — {{ metrics.province }}</h5>
+            <h5 class="section-title">Metrik Gabungan — {{ metrics.province }} <span class="badge bg-warning text-dark ms-2">Data Oktober 2026</span></h5>
             <div class="row g-3">
                 <div class="col-md-3 col-sm-6">
                     <div class="metric-card">
@@ -214,7 +224,7 @@
                 <ul class="mb-0 mt-1">
                     <li>UMP {{ metrics.province }}: Rp {{ "{:,.0f}".format(metrics.ump_monthly) }}/bulan</li>
                     <li>Upah per jam: Rp {{ "{:,.0f}".format(metrics.ump_hourly) }} (173 jam kerja/bulan)</li>
-                    <li>Harga Pertalite: Rp {{ "{:,.0f}".format(metrics.bbm_price) }}/liter</li>
+                    <li>Harga Pertalite ({{ daerah_list[selected_daerah].label }}): Rp {{ "{:,.0f}".format(metrics.bbm_price) }}/liter</li>
                     <li>Konsumsi BBM: {{ metrics.monthly_consumption }} liter/bulan</li>
                     <li>Total pengeluaran: Rp {{ "{:,.0f}".format(metrics.monthly_expenditure) }}/bulan</li>
                     <li>Indeks BBM & upah: base 2020 (Pertalite Rp 6.500, UMP Rp 2.800)</li>

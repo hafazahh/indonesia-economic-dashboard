@@ -36,13 +36,50 @@ UMP_PROVINSI = {
     "Papua Selatan": 4000, "Papua Barat Daya": 3900,
 }
 
-# Harga BBM known (per liter, Rupiah) — fallback jika scrape gagal
-BBM_KNOWN = {
-    "Pertalite": 13000,
-    "Pertamax": 13500,
-    "Pertamax Turbo": 16000,
-    "Dexlite": 13900,
-    "Solar": 6800,
+# Harga BBM per daerah (per liter, Rupiah) — Data Oktober 2026
+# Sumber: Kompas, Liputan6, Pertamina Patra Niaga
+# Pertamina blokir scrape langsung, jadi pakai data manual dengan label jelas.
+BBM_PER_DAERAH = {
+    "jawa": {
+        "label": "Jawa, Bali, NTB",
+        "prices": {
+            "Pertalite": 10000,
+            "Pertamax": 15950,
+            "Pertamax Turbo": 19600,
+            "Dexlite": 23700,
+            "Solar": 6800,
+        },
+    },
+    "aceh_sumut": {
+        "label": "Aceh, Sumut, Jambi, Bengkulu, Sumsel, Babel, Lampung",
+        "prices": {
+            "Pertalite": 10000,
+            "Pertamax": 16300,
+            "Pertamax Turbo": 19600,
+            "Dexlite": 24200,
+            "Solar": 6800,
+        },
+    },
+    "sumbar_riau": {
+        "label": "Sumbar, Riau, Kepri, Kalut",
+        "prices": {
+            "Pertalite": 10000,
+            "Pertamax": 16650,
+            "Pertamax Turbo": 20450,
+            "Dexlite": 24200,
+            "Solar": 6800,
+        },
+    },
+    "indonesia_timur": {
+        "label": "Indonesia Timur (Maluku, Papua, NTT, dll)",
+        "prices": {
+            "Pertalite": 10000,
+            "Pertamax": 14950,
+            "Pertamax Turbo": 18550,
+            "Dexlite": 23700,
+            "Solar": 6800,
+        },
+    },
 }
 
 IKK_KNOWN = 118.1  # fallback IKK (Indeks Keyakinan Konsumen, September 2026)
@@ -88,13 +125,16 @@ def fetch_gold():
 
 
 def fetch_bbm():
-    """Fetch BBM prices. Uses known fallback values (Pertamina blocks scraping)."""
+    """Store BBM prices per daerah. Pertamina blocks scraping, so uses manual
+    data (Oktober 2026) with clear labels."""
     from datetime import date
     today = date.today().isoformat()
     count = 0
-    for name, price in BBM_KNOWN.items():
-        upsert_series(f"bbm_{name.lower().replace(' ', '_')}", today, float(price))
-        count += 1
+    for daerah_key, info in BBM_PER_DAERAH.items():
+        for name, price in info["prices"].items():
+            series_key = f"bbm_{name.lower().replace(' ', '_')}__{daerah_key}"
+            upsert_series(series_key, today, float(price))
+            count += 1
     set_series_metadata("bbm_last_updated", today)
     print(f"  BBM: {count} products stored on {today}")
     return count

@@ -17,7 +17,7 @@ from models import (
 )
 from data_fetcher import fetch_all
 from macro_fetcher import fetch_all_macro
-from micro_fetcher import fetch_all_micro, UMP_PROVINSI
+from micro_fetcher import fetch_all_micro, UMP_PROVINSI, BBM_PER_DAERAH
 from scheduler import start_scheduler, stop_scheduler, scheduler_running
 
 app = Flask(__name__)
@@ -565,11 +565,11 @@ def _build_micro_chart(dates, values_list, labels, colors, title, y_title):
     return fig.to_html(full_html=False, include_plotlyjs="cdn", config={"displayModeBar": False})
 
 
-def _compute_micro_metrics(province=None):
+def _compute_micro_metrics(province=None, daerah="jawa"):
     """Compute combined micro metrics for a province (or national average)."""
-    # Get latest BBM price (Pertalite)
-    pertalite = get_latest_series("bbm_pertalite")
-    bbm_price = pertalite["value"] if pertalite else 13000
+    # Get latest BBM price (Pertalite) for the selected daerah
+    pertalite = get_latest_series(f"bbm_pertalite__{daerah}")
+    bbm_price = pertalite["value"] if pertalite else 10000
 
     # Get UMP for province
     if province and province in UMP_PROVINSI:
@@ -621,10 +621,15 @@ def micro_economy():
     """Micro economy landing page: emas vs BBM, IKK, metrik gabungan."""
     import plotly.graph_objects as go
 
+    # Get selected daerah first (used for BBM series keys below)
+    selected_daerah = request.args.get("daerah", "jawa").strip()
+    if selected_daerah not in BBM_PER_DAERAH:
+        selected_daerah = "jawa"
+
     # Get time series data
     gold_data = get_series("gold_gram", limit=30)
-    pertalite_data = get_series("bbm_pertalite", limit=30)
-    pertamax_data = get_series("bbm_pertamax", limit=30)
+    pertalite_data = get_series(f"bbm_pertalite__{selected_daerah}", limit=30)
+    pertamax_data = get_series(f"bbm_pertamax__{selected_daerah}", limit=30)
     ikk_data = get_series("ikk", limit=12)
     bi_rate_data = get_series("bi_rate", limit=12)
     usd_idr_data = get_series("usd_idr", limit=30)
@@ -693,14 +698,14 @@ def micro_economy():
     bi_rate_chart = apply_nonce(bi_rate_chart, nonce)
     usd_idr_chart = apply_nonce(usd_idr_chart, nonce)
 
-    # Compute metrics for selected province (from query param)
+    # Compute metrics for selected province + daerah (from query params)
     selected_province = request.args.get("province", "").strip()
-    metrics = _compute_micro_metrics(selected_province or None)
+    metrics = _compute_micro_metrics(selected_province or None, selected_daerah)
 
     # Get latest values for display
     gold_latest = get_latest_series("gold_gram")
-    pertalite_latest = get_latest_series("bbm_pertalite")
-    pertamax_latest = get_latest_series("bbm_pertamax")
+    pertalite_latest = get_latest_series(f"bbm_pertalite__{selected_daerah}")
+    pertamax_latest = get_latest_series(f"bbm_pertamax__{selected_daerah}")
     ikk_latest = get_latest_series("ikk")
     bi_rate_latest = get_latest_series("bi_rate")
     usd_idr_latest = get_latest_series("usd_idr")
@@ -715,6 +720,8 @@ def micro_economy():
         ("2022-09-01", 12000), ("2023-01-01", 10500), ("2024-01-01", 11000),
         ("2025-01-01", 13000), ("2026-01-01", 13000),
     ]
+    # Use daerah-specific Pertalite price for the latest historical point
+    bbm_history[-1] = ("2026-01-01", BBM_PER_DAERAH[selected_daerah]["prices"]["Pertalite"])
     # UMP historical (avg, Rupiah thousands/month) — national average
     ump_history = [
         ("2014-01-01", 2200), ("2015-01-01", 2500), ("2016-01-01", 2800),
@@ -762,10 +769,11 @@ def micro_economy():
     bbm_vs_wage_chart = fig.to_html(full_html=False, include_plotlyjs="cdn", config={"displayModeBar": False})
     bbm_vs_wage_chart = apply_nonce(bbm_vs_wage_chart, nonce)
 
-    # Province selector
+    # Province + daerah selectors
     provinces = sorted(UMP_PROVINSI.keys())
     if selected_province not in provinces:
         selected_province = ""
+    daerah_list = BBM_PER_DAERAH
 
     # Last updated
     macro_updated = get_series_metadata("macro_last_updated") or "Belum pernah update"
@@ -802,6 +810,8 @@ def micro_economy():
         macro_updated=macro_updated,
         micro_updated=micro_updated,
         bbm_vs_wage_chart=bbm_vs_wage_chart,
+        daerah_list=daerah_list,
+        selected_daerah=selected_daerah,
     )
 
 
