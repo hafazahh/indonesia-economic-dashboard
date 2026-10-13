@@ -10,7 +10,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 sys.path.insert(0, os.path.dirname(__file__))
 from data_fetcher import fetch_all
-from macro_fetcher import fetch_all_macro
+from macro_fetcher import fetch_all_macro, fetch_inflation_yoy
 from micro_fetcher import fetch_all_micro
 
 UPDATE_INTERVAL_HOURS = 6
@@ -24,6 +24,7 @@ def _job():
         print("[Scheduler] Fetching data...")
         fetch_all()
         fetch_all_macro()
+        fetch_inflation_yoy()
         fetch_all_micro()
         print("[Scheduler] Fetch complete")
     except Exception as exc:  # keep the scheduler alive on any fetch failure

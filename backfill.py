@@ -21,6 +21,7 @@ from collections import defaultdict
 
 sys.path.insert(0, os.path.dirname(__file__))
 from models import init_db, init_time_series, upsert_series, set_series_metadata
+from macro_fetcher import INFLATION_YOY_KNOWN
 
 GOLD_HISTORY_URL = "https://logam-mulia-api.iamutaki.workers.dev/api/prices/anekalogam/history"
 USD_IDR_URL = "https://api.frankfurter.app/2024-01-01..2026-10-13?from=USD&to=IDR"
@@ -286,6 +287,17 @@ def backfill_bbm():
     return count
 
 
+def backfill_inflation():
+    """Backfill inflation_yoy series with BPS monthly data (Jan 2025 – Sep 2026)."""
+    print("=== Inflasi Bulanan (inflation_yoy) ===")
+    count = 0
+    for date_str, value in sorted(INFLATION_YOY_KNOWN.items()):
+        upsert_series("inflation_yoy", date_str, value)
+        count += 1
+    print(f"  Stored: {count} rows")
+    return count
+
+
 def run():
     """Run all backfills. Idempotent."""
     init_db()
@@ -295,6 +307,7 @@ def run():
     total += backfill_usd_idr()
     total += backfill_ikk()
     total += backfill_bbm()
+    total += backfill_inflation()
     set_series_metadata("backfill_last_run", datetime.utcnow().isoformat())
     print(f"\nBackfill complete: {total} rows stored")
     return total

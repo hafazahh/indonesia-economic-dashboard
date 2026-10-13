@@ -18,11 +18,15 @@ from models import (
 from data_fetcher import fetch_all
 from macro_fetcher import (
     fetch_all_macro,
+    fetch_inflation_yoy,
     ensure_literacy_interest,
     UNESCO_READING_INTEREST,
     UNESCO_READING_INTEREST_YEAR,
     UNESCO_READING_INTEREST_RANK,
     UNESCO_READING_INTEREST_TOTAL,
+    BI_TARGET_LOW,
+    BI_TARGET_HIGH,
+    BI_TARGET_CENTER,
 )
 from micro_fetcher import fetch_all_micro, UMP_PROVINSI, BBM_PER_DAERAH
 from backfill import run as backfill_run
@@ -356,6 +360,81 @@ def build_single_chart(years, values, label, color):
     return fig.to_html(full_html=False, include_plotlyjs=False, config={"displayModeBar": False})
 
 
+def build_inflation_chart(dates, values):
+    """Monthly inflation YoY chart with BI target corridor (1.5%–3.5%)."""
+    import plotly.graph_objects as go
+
+    fig = go.Figure()
+    # Target corridor band
+    fig.add_trace(go.Scatter(
+        x=dates + dates[::-1],
+        y=[BI_TARGET_HIGH] * len(dates) + [BI_TARGET_LOW] * len(dates),
+        fill="toself", fillcolor="rgba(40,167,69,0.1)",
+        line=dict(color="rgba(0,0,0,0)"), name="Target BI (1.5%–3.5%)",
+        hoverinfo="skip",
+    ))
+    # Inflation line
+    fig.add_trace(go.Scatter(
+        x=dates, y=values, mode="lines+markers", name="Inflasi YoY (%)",
+        line=dict(color="#dc3545", width=3), marker=dict(size=7),
+    ))
+    fig.update_layout(**_base_layout())
+    fig.update_xaxes(title_text="Bulan", showgrid=False)
+    fig.update_yaxes(title_text="Persen (%)", gridcolor="#e9ecef", zeroline=True)
+    return fig.to_html(full_html=False, include_plotlyjs=False, config={"displayModeBar": False})
+
+
+def build_inflation_snapshot(latest, year_ago):
+    """Build inflation insight snapshot text: current vs year-ago comparison."""
+    if not latest:
+        return ""
+    val = latest["value"]
+    date_str = latest["date"]
+    month_year = _format_month_id(date_str)
+
+    if BI_TARGET_LOW <= val <= BI_TARGET_HIGH:
+        corridor_status = "masih berada di dalam target BI"
+    elif val < BI_TARGET_LOW:
+        corridor_status = "berada di bawah target BI"
+    else:
+        corridor_status = "berada di atas target BI"
+
+    if year_ago:
+        prev_val = year_ago["value"]
+        prev_month_year = _format_month_id(year_ago["date"])
+        delta = val - prev_val
+        if abs(delta) < 0.005:
+            trend = "sama dengan"
+        elif delta > 0:
+            trend = f"naik {delta:.2f} pp dari"
+        else:
+            trend = f"turun {abs(delta):.2f} pp dari"
+        return (
+            f"Inflasi {month_year} tercatat {val:.2f}% (yoy), "
+            f"{corridor_status} ({BI_TARGET_CENTER:.1f}% ±1%). "
+            f"Angka ini {trend} {prev_val:.2f}% pada {prev_month_year}."
+        )
+    else:
+        return (
+            f"Inflasi {month_year} tercatat {val:.2f}% (yoy), "
+            f"{corridor_status} ({BI_TARGET_CENTER:.1f}% ±1%)."
+        )
+
+
+def _format_month_id(date_str):
+    """Format '2026-09-01' → 'September 2026' (Indonesian month names)."""
+    bulan = {
+        "01": "Januari", "02": "Februari", "03": "Maret", "04": "April",
+        "05": "Mei", "06": "Juni", "07": "Juli", "08": "Agustus",
+        "09": "September", "10": "Oktober", "11": "November", "12": "Desember",
+    }
+    try:
+        parts = date_str.split("-")
+        return f"{bulan.get(parts[1], parts[1])} {parts[0]}"
+    except (IndexError, AttributeError):
+        return date_str
+
+
 @app.route("/")
 def dashboard():
     data = get_all_data()
@@ -512,6 +591,38 @@ def dashboard():
     else:
         gini_chart = ""
 
+    # Inflation YoY (monthly BPS data)
+    inflation_yoy_latest = get_latest_series("inflation_yoy")
+    inflation_yoy_data = get_series("inflation_yoy", limit=12)
+    inflation_snapshot = ""
+    inflation_chart = ""
+
+    if inflation_yoy_latest:
+        macro_kpis.insert(0, {
+            "name": "Inflasi YoY",
+            "value": f"{inflation_yoy_latest['value']:.2f}%",
+            "date": inflation_yoy_latest["date"],
+            "color": "text-danger",
+            "last_updated": inflation_yoy_latest.get("fetched_at", "Belum pernah update"),
+        })
+
+    if inflation_yoy_data:
+        infl_dates = [r["date"] for r in inflation_yoy_data]
+        infl_values = [r["value"] for r in inflation_yoy_data]
+        inflation_chart = apply_nonce(
+            build_inflation_chart(infl_dates, infl_values), nonce
+        )
+        # Year-ago comparison: find same month previous year
+        latest_date = inflation_yoy_latest["date"]
+        latest_year = int(latest_date[:4])
+        latest_month = latest_date[5:7]
+        year_ago_date = f"{latest_year - 1}-{latest_month}-01"
+        year_ago = next(
+            (r for r in inflation_yoy_data if r["date"] == year_ago_date),
+            None
+        )
+        inflation_snapshot = build_inflation_snapshot(inflation_yoy_latest, year_ago)
+
     macro_updated = get_series_metadata("macro_last_updated") or "Belum pernah update"
 
     return render_template(
@@ -529,6 +640,8 @@ def dashboard():
         usd_idr_chart=usd_idr_chart,
         gini_chart=gini_chart,
         macro_updated=macro_updated,
+        inflation_chart=inflation_chart,
+        inflation_snapshot=inflation_snapshot,
     )
 
 

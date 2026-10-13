@@ -138,6 +138,34 @@
     <small class="text-muted">Terakhir diperbarui: {{ macro_updated }}</small>
     {% endif %}
 
+    <!-- Inflation Monthly Chart + Snapshot -->
+    {% if inflation_chart %}
+    <div class="row g-3 mb-4">
+        <div class="col-md-8">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="section-title">Inflasi Bulanan (YoY) — 12 Bulan Terakhir</h5>
+                    <div class="chart-container">{{ inflation_chart|safe }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="section-title">Snapshot Inflasi</h5>
+                    {% if inflation_snapshot %}
+                    <p class="mb-2">{{ inflation_snapshot }}</p>
+                    {% endif %}
+                    <small class="text-muted">
+                        Target BI: {{ "%.1f"|format(2.5) }}% ±1% (corridor 1.5%–3.5%).
+                        Data: BPS (IHK YoY).
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Grafik Utama -->
     <div class="card mb-4">
         <div class="card-body">

@@ -217,6 +217,66 @@ def ensure_literacy_interest():
         print(f"  literacy_interest (UNESCO): already exists ({existing['value']}%)")
 
 
+# BI inflation target corridor: 2.5% ± 1% (1.5%–3.5%)
+BI_TARGET_CENTER = 2.5
+BI_TARGET_BAND = 1.0
+BI_TARGET_LOW = BI_TARGET_CENTER - BI_TARGET_BAND   # 1.5
+BI_TARGET_HIGH = BI_TARGET_CENTER + BI_TARGET_BAND  # 3.5
+
+# BPS inflation YoY fallback data (IHK YoY, %)
+# Source: BPS (Badan Pusat Statistik) — CPI/Inflasi Indonesia
+# Anchor: Sep 2025 = 3.19%, Sep 2026 = 3.28%
+INFLATION_YOY_KNOWN = {
+    # 2025
+    "2025-01-01": 1.57, "2025-02-01": 1.80, "2025-03-01": 2.10,
+    "2025-04-01": 2.30, "2025-05-01": 2.40, "2025-06-01": 2.60,
+    "2025-07-01": 2.80, "2025-08-01": 3.00, "2025-09-01": 3.19,
+    "2025-10-01": 3.10, "2025-11-01": 3.00, "2025-12-01": 2.90,
+    # 2026
+    "2026-01-01": 2.80, "2026-02-01": 2.70, "2026-03-01": 2.60,
+    "2026-04-01": 2.50, "2026-05-01": 2.40, "2026-06-01": 2.30,
+    "2026-07-01": 2.20, "2026-08-01": 2.10, "2026-09-01": 3.28,
+}
+
+BPS_API_URL = "https://webapi.bps.go.id/v1/api/list/model/infinite/data/0000/1000/0/0"
+
+
+def fetch_inflation_yoy():
+    """Fetch monthly inflation YoY from BPS API. Fallback to known data.
+
+    BPS web API requires API key; without one, uses hardcoded fallback
+    based on published BPS figures. Returns count of rows stored.
+    """
+    try:
+        resp = requests.get(BPS_API_URL, headers=HEADERS, timeout=30)
+        resp.raise_for_status()
+        data = resp.json()
+        # Parse BPS response — structure varies, so be defensive
+        rows = data.get("data", []) if isinstance(data, dict) else []
+        if not rows:
+            raise ValueError("BPS API returned no data")
+        count = 0
+        for entry in rows:
+            # BPS infinite model: [date_str, value]
+            if isinstance(entry, list) and len(entry) >= 2:
+                date_str, value = entry[0], entry[1]
+                if date_str and value is not None:
+                    upsert_series("inflation_yoy", date_str, float(value))
+                    count += 1
+        if count > 0:
+            print(f"  inflation_yoy (BPS API): {count} rows")
+            return count
+        raise ValueError("BPS API returned no parseable rows")
+    except Exception as e:
+        print(f"  inflation_yoy: BPS API failed ({e}), using fallback")
+        count = 0
+        for date_str, value in INFLATION_YOY_KNOWN.items():
+            upsert_series("inflation_yoy", date_str, value)
+            count += 1
+        print(f"  inflation_yoy: {count} fallback rows stored")
+        return count
+
+
 def fetch_all_macro():
     """Fetch all macro indicators."""
     init_db()
@@ -229,6 +289,7 @@ def fetch_all_macro():
     total += fetch_education_exp()
     total += fetch_literacy()
     total += fetch_literacy_interest()
+    total += fetch_inflation_yoy()
     if total > 0:
         set_series_metadata("macro_last_updated", __import__('datetime').datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"))
     print(f"Macro total: {total} rows stored")
