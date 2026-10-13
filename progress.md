@@ -551,3 +551,31 @@ plus card baru "Minat Baca Aktif" dari UNESCO.
 - `verify_acceptance.py` — **15/15 PASS**
 
 **Error:** tidak ada.
+
+---
+
+## Sesi 2026-10-13 — Fase 17.10: Card Inflasi Tahunan World Bank + Narasi Insight (leadengineer)
+
+**Goal:** Tampilkan data World Bank tahunan (1.91%, 2025) sebagai card terpisah + insight perbandingan dengan BPS bulanan.
+
+**Perubahan:**
+
+1. **app.py** — tambah:
+   - Card "Inflasi Tahunan (World Bank)": value 1.91%, badge "2025" + "World Bank", subtitle "Rata-rata inflasi seluruh tahun"
+   - Rename card BPS: "Inflasi YoY" → "Inflasi YoY (BPS)"
+   - `generate_insight()`: gabungkan BPS monthly + WB annual dalam 1 kalimat perbandingan dinamis
+   - Variabel `wb_inflasi_latest`, `wb_inflasi_prev` diambil dari `data[INFLATION_CODE]`
+
+2. **templates/dashboard.html** — tambah:
+   - Render `kpi.description` di KPI cards
+
+3. **verify_acceptance.py** — update:
+   - Expected KPI count 3 → 4
+
+**Hasil:**
+- 4 KPI utama: Inflasi Tahunan WB (1.91%), Inflasi YoY BPS (3.28%), PDB Growth (5.11%), Trade Balance (29.6 miliar USD)
+- Insight: "Inflasi 3.28% (September 2026, BPS), berada dalam target BI (2-4%), naik dari rata-rata tahunan 2025 sebesar 1.9% (World Bank). Kenaikan ini menunjukkan tekanan inflasi lebih tinggi pada periode terbaru."
+- Test: KPI 17/17, insight 21/21, security 50/50, acceptance 15/15 PASS
+- Commit: `9e8c034` pushed ke master
+
+**Error:** tidak ada.

@@ -269,6 +269,10 @@ dan buat landing page micro economy terpisah dengan metrik gabungan BBM vs upah.
 | 17.4 | Saran penyajian (grafik, provinsi, asumsi) | complete |
 | 17.5 | Backfill data historis (gold, USD/IDR, IKK, BBM) | complete — 17/35/25/9 rows per series |
 | 17.6 | Narasi Pendidikan & Literasi + Card Minat Baca UNESCO | **complete** — 17/17 + 21/21 + 50/50 + 15/15 PASS |
+| 17.7 | Inflasi bulanan (YoY) + insight snapshot vs tahun lalu | **complete** |
+| 17.8 | Gabung Card Inflasi — Hilangkan Duplikasi | **complete** |
+| 17.9 | Ganti Card UNESCO → Literasi Membaca PISA 2022 | **complete** |
+| 17.10 | Card Inflasi Tahunan World Bank + Narasi Insight | **complete** — 4 KPI cards (1.91% WB, 3.28% BPS, 5.11% PDB, 29.6 miliar USD), insight perbandingan dinamis, 17/17 + 21/21 + 50/50 + 15/15 PASS |
 | 17.11 | Insight Box Micro Economy (/micro) | **complete** — 21/21 + 17/17 + 50/50 + 12/12 PASS |
 
 ### Data Sources — Perlu Dicek
