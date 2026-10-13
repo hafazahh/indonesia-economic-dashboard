@@ -25,7 +25,7 @@ check("Halaman dashboard HTTP 200", r.status_code == 200, f"status={r.status_cod
 # AC1: 3 KPI cards dengan data terkini
 kpi_cards = html.count("kpi-card")
 kpi_values = re.findall(r'class="kpi-value">([^<]+)<', html)
-check("AC1 3 KPI cards", len(kpi_values) == 3, f"values={kpi_values}")
+check("AC1 4 KPI cards", len(kpi_values) == 4, f"values={kpi_values}")
 check("AC1 KPI ada nilai nyata", all(v.strip() and v.strip() != "-" for v in kpi_values), f"{kpi_values}")
 
 # AC2: grafik 5 tahun PDB + Inflasi (Plotly)

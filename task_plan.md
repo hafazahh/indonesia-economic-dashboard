@@ -269,6 +269,7 @@ dan buat landing page micro economy terpisah dengan metrik gabungan BBM vs upah.
 | 17.4 | Saran penyajian (grafik, provinsi, asumsi) | complete |
 | 17.5 | Backfill data historis (gold, USD/IDR, IKK, BBM) | complete — 17/35/25/9 rows per series |
 | 17.6 | Narasi Pendidikan & Literasi + Card Minat Baca UNESCO | **complete** — 17/17 + 21/21 + 50/50 + 15/15 PASS |
+| 17.11 | Insight Box Micro Economy (/micro) | **complete** — 21/21 + 17/17 + 50/50 + 12/12 PASS |
 
 ### Data Sources — Perlu Dicek
 
